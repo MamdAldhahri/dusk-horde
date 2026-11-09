@@ -163,6 +163,7 @@ class Enemy extends SpriteComponent with HasGameReference<DuskHordeGame> {
       position.addScaled(knock, dt);
       knock.scale(0.82);
     }
+    _keepOffPlayer(player);
     if (game.arena.contains(position.toOffset())) {
       final before = position.clone();
       pushOutOfRects(position, type.radius, game.obstacles);
@@ -171,6 +172,24 @@ class Enemy extends SpriteComponent with HasGameReference<DuskHordeGame> {
 
     faceToward(toPlayer);
     _bite(player, toPlayer, dist);
+  }
+
+  /// Bodies don't overlap: an enemy that reaches you stops at your edge
+  /// (close enough to bite) instead of walking into you.
+  void _keepOffPlayer(Player player) {
+    if (!player.isAlive) return;
+    final away = position - player.position;
+    final minDist = type.radius + Player.radius;
+    final d2 = away.length2;
+    if (d2 >= minDist * minDist) return;
+    if (d2 < 0.0001) {
+      away.setValues(cos(_wobbleSeed), sin(_wobbleSeed));
+    } else {
+      away.scale(1 / sqrt(d2));
+    }
+    position
+      ..setFrom(player.position)
+      ..addScaled(away, minDist);
   }
 
   void _bite(Player player, Vector2 toPlayer, double dist) {

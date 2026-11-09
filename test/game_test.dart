@@ -123,4 +123,33 @@ void main() {
       expect(game.isGameOver, isFalse);
     },
   );
+
+  testWithGame<DuskHordeGame>(
+    'zombies stop at the player\'s edge instead of overlapping',
+    quiet,
+    (game) async {
+      await game.ready();
+      final p = game.player..hp = 9999;
+      final zs = [
+        for (final dx in [-60.0, 60.0, 0.0])
+          await spawn(
+            game,
+            Zombies.shambler,
+            p.position + Vector2(dx, dx == 0 ? 60 : 0),
+          ),
+      ];
+      // Also walk the player straight into one.
+      game.moveStick.vector = Vector2(1, 0);
+      await run(game, 120);
+      game.moveStick.vector.setZero();
+      await run(game, 30);
+      for (final z in zs) {
+        expect(
+          z.position.distanceTo(p.position),
+          greaterThanOrEqualTo(z.type.radius + 10 - 0.5),
+        );
+      }
+      expect(p.hp, lessThan(9999), reason: 'still close enough to bite');
+    },
+  );
 }

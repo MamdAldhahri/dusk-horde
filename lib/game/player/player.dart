@@ -189,6 +189,7 @@ class Player extends SpriteComponent with HasGameReference<DuskHordeGame> {
       position.addScaled(_knock, dt);
       _knock.scale(0.8);
     }
+    _keepOffStatics();
     pushOutOfRects(position, radius, game.obstacles);
     _clampToArena();
 
@@ -263,6 +264,19 @@ class Player extends SpriteComponent with HasGameReference<DuskHordeGame> {
       }
     }
     return best ?? raw;
+  }
+
+  /// Enemies step out of your way (see Enemy), but rooted ones like Brood
+  /// Pods can't, so you are the one stopped at their edge.
+  void _keepOffStatics() {
+    for (final e in game.waves.alive) {
+      if (!e.isStatic || !e.isAlive) continue;
+      final away = position - e.position;
+      final minDist = e.type.radius + radius;
+      final d = away.length;
+      if (d >= minDist || d < 0.0001) continue;
+      position.addScaled(away, (minDist - d) / d);
+    }
   }
 
   void _clampToArena() {
