@@ -35,9 +35,10 @@ void main() {
     quiet,
     (game) async {
       await game.ready();
+      final startX = game.player.position.x;
       game.moveStick.vector = Vector2(-1, 0);
       await run(game, 60);
-      expect(game.player.position.x, lessThan(-60));
+      expect(game.player.position.x, lessThan(startX - 60));
       await run(game, 600);
       expect(game.player.position.x, greaterThanOrEqualTo(game.arena.left));
     },
@@ -48,8 +49,12 @@ void main() {
     quiet,
     (game) async {
       await game.ready();
-      final target = await spawn(game, Zombies.shambler, Vector2(200, 0));
-      game.aimStick.vector = Vector2(1, 0);
+      final target = await spawn(
+        game,
+        Zombies.shambler,
+        game.player.position + Vector2(-150, 0),
+      );
+      game.aimStick.vector = Vector2(-1, 0);
       await run(game, 60);
       expect(target.hp, lessThan(Zombies.shambler.hp));
       expect(game.bullets.created, lessThanOrEqualTo(6));
@@ -61,9 +66,9 @@ void main() {
     quiet,
     (game) async {
       await game.ready();
-      // Player just below the wreck at (-260,-150, 64x30); zombie above it.
-      game.player.position.setValues(-228, -100);
-      await spawn(game, Zombies.shambler, Vector2(-228, -200));
+      // Player just below the car at (656, 288, 30x60); zombie above it.
+      game.player.position.setValues(671, 366);
+      await spawn(game, Zombies.shambler, Vector2(671, 268));
       await run(game, 60 * 8);
       expect(game.player.hp, lessThan(100));
     },

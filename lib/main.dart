@@ -34,6 +34,8 @@ class _DuskHordeAppState extends State<DuskHordeApp> {
         overlayBuilderMap: {
           DuskHordeGame.gameOverOverlay: (context, game) =>
               GameOverPanel(game: game as DuskHordeGame),
+          DuskHordeGame.dawnOverlay: (context, game) =>
+              DawnPanel(game: game as DuskHordeGame),
         },
       ),
     );
@@ -79,6 +81,59 @@ class GameOverPanel extends StatelessWidget {
               ),
               onPressed: game.restart,
               child: const Text('TRY AGAIN', style: TextStyle(fontSize: 16)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shown when the final wave is cleared.
+class DawnPanel extends StatelessWidget {
+  const DawnPanel({super.key, required this.game});
+
+  final DuskHordeGame game;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xEE2A1A2E), Color(0xEEE07A3A)],
+        ),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'DAWN BREAKS',
+              style: TextStyle(
+                color: Color(0xFFFFE2B0),
+                fontSize: 32,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 4,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'You survived the night at the Gas Station  ·  ${game.waves.kills} kills',
+              style: const TextStyle(color: Color(0xFFFFF3E0), fontSize: 16),
+            ),
+            const SizedBox(height: 24),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF3A2A1E),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 14,
+                ),
+              ),
+              onPressed: game.restart,
+              child: const Text('PLAY AGAIN', style: TextStyle(fontSize: 16)),
             ),
           ],
         ),

@@ -23,6 +23,20 @@ class Player extends SpriteComponent with HasGameReference<DuskHordeGame> {
   static const hurtGrace = 0.6; // seconds of safety after a bite
 
   double hp = maxHp;
+  double get maxHealth => maxHp;
+
+  void heal(double amount) {
+    if (!isAlive) return;
+    hp = min(maxHp, hp + amount);
+    add(
+      ColorEffect(
+        const Color(0xFF60FF70),
+        EffectController(duration: 0.1, reverseDuration: 0.2),
+        opacityTo: 0.5,
+      ),
+    );
+  }
+
   bool get isAlive => hp > 0;
   double _hurtTimer = 0;
   final Vector2 _knock = Vector2.zero();
@@ -65,7 +79,7 @@ class Player extends SpriteComponent with HasGameReference<DuskHordeGame> {
     hp = maxHp;
     _hurtTimer = 0;
     _knock.setZero();
-    position.setZero();
+    position.setFrom(game.level.playerStart);
     opacity = 1;
   }
 
