@@ -8,6 +8,7 @@ import '../dusk_horde_game.dart';
 import '../fx/muzzle_flash.dart';
 import '../game_assets.dart';
 import '../weapons/magazine.dart';
+import '../world/obstacles.dart';
 import 'dodge.dart';
 
 /// The survivor. Left stick moves, right stick aims and auto-fires.
@@ -18,6 +19,16 @@ class Player extends SpriteComponent with HasGameReference<DuskHordeGame> {
   static const dodgeSpeed = 360.0;
   static const radius = 10.0;
   static const aimAssistAngle = 15 * pi / 180;
+  static const maxHp = 100.0;
+  static const hurtGrace = 0.6; // seconds of safety after a bite
+
+  double hp = maxHp;
+  bool get isAlive => hp > 0;
+  double _hurtTimer = 0;
+  final Vector2 _knock = Vector2.zero();
+
+  /// How close an enemy must be to bite.
+  double get radiusForBites => radius + 2;
 
   /// Where the gun and flashlight point, radians (0 = right).
   double aimAngle = 0;
@@ -31,6 +42,31 @@ class Player extends SpriteComponent with HasGameReference<DuskHordeGame> {
     sprite = Sprite(game.images.fromCache(GameAssets.player));
     size = sprite!.srcSize;
     paint = Paint()..filterQuality = FilterQuality.none;
+  }
+
+  /// Called by enemies. Dodging and the short grace after a bite ignore it.
+  void takeBite(double damage, Vector2 from) {
+    if (!isAlive || dodge.isInvincible || _hurtTimer > 0) return;
+    hp = max(0, hp - damage);
+    _hurtTimer = hurtGrace;
+    _knock.setFrom(from..scale(140));
+    add(
+      ColorEffect(
+        const Color(0xFFFF2020),
+        EffectController(duration: 0.08, reverseDuration: 0.15),
+        opacityTo: 0.7,
+      ),
+    );
+    game.shake(4);
+    if (!isAlive) game.onPlayerDied();
+  }
+
+  void revive() {
+    hp = maxHp;
+    _hurtTimer = 0;
+    _knock.setZero();
+    position.setZero();
+    opacity = 1;
   }
 
   void tryDodge() {
@@ -56,6 +92,8 @@ class Player extends SpriteComponent with HasGameReference<DuskHordeGame> {
   @override
   void update(double dt) {
     super.update(dt);
+    if (!isAlive) return;
+    if (_hurtTimer > 0) _hurtTimer -= dt;
     dodge.update(dt);
     pistol.update(dt);
 
@@ -65,6 +103,11 @@ class Player extends SpriteComponent with HasGameReference<DuskHordeGame> {
     } else {
       position.addScaled(move, moveSpeed * dt);
     }
+    if (_knock.length2 > 1) {
+      position.addScaled(_knock, dt);
+      _knock.scale(0.8);
+    }
+    pushOutOfRects(position, radius, game.obstacles);
     _clampToArena();
 
     final aim = game.aimStick.vector;
@@ -92,7 +135,7 @@ class Player extends SpriteComponent with HasGameReference<DuskHordeGame> {
   double _assist(double raw) {
     double? best;
     var bestDiff = aimAssistAngle;
-    for (final t in game.targets) {
+    for (final t in game.waves.alive) {
       if (!t.isAlive) continue;
       final to = t.position - position;
       if (to.length > 260) continue;
