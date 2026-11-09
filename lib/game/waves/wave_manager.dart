@@ -1,11 +1,12 @@
 import 'package:flame/components.dart';
 
 import '../dusk_horde_game.dart';
+import '../enemies/brute.dart';
 import '../enemies/enemy.dart';
 import '../enemies/enemy_type.dart';
 import 'wave_plan.dart';
 
-enum WavePhase { breather, spawning, fighting }
+enum WavePhase { breather, spawning, fighting, dawn }
 
 /// Runs the loop: breather, spawn a wave, wait until it's cleared, repeat.
 class WaveManager extends Component with HasGameReference<DuskHordeGame> {
@@ -17,6 +18,9 @@ class WaveManager extends Component with HasGameReference<DuskHordeGame> {
   WavePhase phase = WavePhase.breather;
   int wave = 0;
   double breatherLeft = 0;
+
+  /// The boss of the current wave while it lives (for the HUD bar).
+  Enemy? boss;
 
   /// Enemies currently alive (spawned and not yet killed).
   final List<Enemy> alive = [];
@@ -40,6 +44,7 @@ class WaveManager extends Component with HasGameReference<DuskHordeGame> {
     }
     alive.clear();
     _queue.clear();
+    boss = null;
     wave = 0;
     kills = 0;
     phase = WavePhase.breather;
@@ -49,6 +54,7 @@ class WaveManager extends Component with HasGameReference<DuskHordeGame> {
   void onEnemyKilled(Enemy e) {
     alive.remove(e);
     kills++;
+    if (identical(e, boss)) boss = null;
   }
 
   @override
@@ -66,9 +72,17 @@ class WaveManager extends Component with HasGameReference<DuskHordeGame> {
         if (_queue.isEmpty) phase = WavePhase.fighting;
       case WavePhase.fighting:
         if (alive.isEmpty) {
-          phase = WavePhase.breather;
-          breatherLeft = WavePlan.breatherSeconds;
+          if (wave >= plan.finalWave) {
+            phase = WavePhase.dawn;
+            game.onDawn();
+          } else {
+            phase = WavePhase.breather;
+            breatherLeft = WavePlan.breatherSeconds;
+            game.onBreather();
+          }
         }
+      case WavePhase.dawn:
+        break;
     }
   }
 
@@ -94,7 +108,11 @@ class WaveManager extends Component with HasGameReference<DuskHordeGame> {
       (game.random.nextDouble() - 0.5) * 24,
       (game.random.nextDouble() - 0.5) * 24,
     );
-    final e = Enemy(type, p + jitter, hpScale: plan.hpScale(wave));
+    final at = p + jitter;
+    final e = type == Zombies.brute
+        ? Brute(at, hpScale: plan.hpScale(wave, boss: true))
+        : Enemy(type, at, hpScale: plan.hpScale(wave));
+    if (type.isBoss) boss = e;
     alive.add(e);
     game.world.add(e);
   }

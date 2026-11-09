@@ -79,6 +79,7 @@ class Hud extends PositionComponent with HasGameReference<DuskHordeGame> {
 
   static final _barBack = Paint()..color = const Color(0x55FFFFFF);
   static final _barFill = Paint()..color = const Color(0xFFB3261E);
+  static final _bossFill = Paint()..color = const Color(0xFFE08A1E);
 
   @override
   void render(Canvas canvas) {
@@ -89,6 +90,18 @@ class Hud extends PositionComponent with HasGameReference<DuskHordeGame> {
       Rect.fromLTWH(r.left, r.top, r.width * f, r.height),
       _barFill,
     );
+
+    final boss = game.waves.boss;
+    if (boss != null && boss.isAlive) {
+      final w = size.x * 0.4;
+      final b = Rect.fromLTWH((size.x - w) / 2, 34, w, 8);
+      canvas.drawRect(b, _barBack);
+      final k = (boss.hp / boss.maxHp).clamp(0.0, 1.0);
+      canvas.drawRect(
+        Rect.fromLTWH(b.left, b.top, b.width * k, b.height),
+        _bossFill,
+      );
+    }
   }
 
   @override
@@ -99,7 +112,9 @@ class Hud extends PositionComponent with HasGameReference<DuskHordeGame> {
         'GET READY  ${w.breatherLeft.ceil()}',
       WavePhase.breather =>
         'WAVE ${w.wave} CLEARED  ·  next in ${w.breatherLeft.ceil()}',
-      _ => 'WAVE ${w.wave}  ·  ${w.remaining} left',
+      WavePhase.dawn => 'DAWN',
+      _ when w.boss != null => 'WAVE ${w.wave}  ·  THE BRUTE',
+      _ => 'WAVE ${w.wave} / ${w.plan.finalWave}  ·  ${w.remaining} left',
     };
     final p = game.player.pistol;
     _ammo.text = p.isReloading

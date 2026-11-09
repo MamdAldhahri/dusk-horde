@@ -22,7 +22,7 @@ void main() {
         plan.wave(8, Random(1)).countOf(Zombies.runner),
         greaterThan(plan.wave(3, Random(1)).countOf(Zombies.runner)),
       );
-      expect(plan.wave(10, Random(1)).enemies.length, 36);
+      expect(plan.wave(9, Random(1)).enemies.length, 33);
     });
     test('hp scales 8% per wave', () {
       expect(plan.hpScale(1), 1);
