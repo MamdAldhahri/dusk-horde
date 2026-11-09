@@ -81,7 +81,9 @@ class WaveManager extends Component with HasGameReference<DuskHordeGame> {
             game.onDawn();
           } else {
             phase = WavePhase.breather;
-            breatherLeft = WavePlan.breatherSeconds;
+            breatherLeft = game.progress.testMode
+                ? 3
+                : WavePlan.breatherSeconds;
             game.onBreather();
           }
         }
@@ -118,6 +120,19 @@ class WaveManager extends Component with HasGameReference<DuskHordeGame> {
         createEnemy(Aliens.broodPod, p.clone(), hpScale: plan.hpScale(wave)),
       );
     }
+  }
+
+  /// Test Mode: ends the current wave on the spot (no scrap for the
+  /// skipped enemies), so later waves and the boss can be reached quickly.
+  void skipWave() {
+    if (phase != WavePhase.spawning && phase != WavePhase.fighting) return;
+    _queue.clear();
+    for (final e in alive) {
+      e.removeFromParent();
+    }
+    alive.clear();
+    boss = null;
+    phase = WavePhase.fighting;
   }
 
   /// Puts an enemy into play mid-wave (spawns, pods, the Warden's packs).

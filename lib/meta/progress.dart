@@ -19,6 +19,7 @@ class Progress {
     Map<String, int>? endlessBest,
     this.level = 'gas_station',
     this.endless = false,
+    this.testMode = false,
   }) : unlocked = unlocked ?? {'pistol'},
        tiers = tiers ?? {},
        perks = perks ?? {},
@@ -51,15 +52,23 @@ class Progress {
   String level;
   bool endless;
 
+  /// Test Mode (debug builds only): easy fights, everything open.
+  bool testMode;
+
+  /// Owned, or borrowed for Test Mode.
+  bool hasGun(String id) => testMode || unlocked.contains(id);
+
   /// Level 1 is always open; each level opens the next once beaten.
-  bool isLevelOpen(String id) => switch (id) {
-    'gas_station' => true,
-    'crash_site' => beaten.contains('gas_station'),
-    _ => false,
-  };
+  bool isLevelOpen(String id) =>
+      testMode ||
+      switch (id) {
+        'gas_station' => true,
+        'crash_site' => beaten.contains('gas_station'),
+        _ => false,
+      };
 
   /// Beating Level 2 opens Endless on both maps.
-  bool get endlessOpen => beaten.contains('crash_site');
+  bool get endlessOpen => testMode || beaten.contains('crash_site');
 
   List<int?> tiersOf(String weapon) =>
       tiers.putIfAbsent(weapon, () => List<int?>.filled(5, null));
@@ -74,7 +83,7 @@ class Progress {
 
   /// Why the next tier can't be bought right now, or null if it can.
   String? whyNotBuyTier(String weapon) {
-    if (!unlocked.contains(weapon)) return 'Locked';
+    if (!hasGun(weapon)) return 'Locked';
     final n = tierCount(weapon);
     if (n >= 5) return 'Maxed';
     if (scrap < tierCosts[n]) return 'Need ${tierCosts[n]} scrap';
@@ -158,6 +167,7 @@ class Progress {
     'endlessBest': endlessBest,
     'level': level,
     'endless': endless,
+    'testMode': testMode,
   };
 
   static Map<String, int> _intMap(Object? m) => {
@@ -183,6 +193,7 @@ class Progress {
     endlessBest: _intMap(j['endlessBest']),
     level: j['level'] as String? ?? 'gas_station',
     endless: j['endless'] as bool? ?? false,
+    testMode: j['testMode'] as bool? ?? false,
   )..unlocked.add('pistol');
 
   String encode() => jsonEncode(toJson());

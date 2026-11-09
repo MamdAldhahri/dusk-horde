@@ -23,6 +23,10 @@ class Player extends SpriteComponent with HasGameReference<DuskHordeGame> {
   static const aimAssistAngle = 15 * pi / 180;
   static const hurtGrace = 0.6; // seconds of safety after a bite
 
+  /// Test Mode: you take a fifth of the damage and deal three times as much.
+  static const testDamageTaken = 0.2;
+  static const testDamageDealt = 3.0;
+
   late double hp = maxHealth;
   double get maxHealth => game.progress.maxHp;
 
@@ -81,7 +85,7 @@ class Player extends SpriteComponent with HasGameReference<DuskHordeGame> {
       ..clear()
       ..addAll([
         for (final id in p.loadout)
-          if (p.unlocked.contains(id))
+          if (p.hasGun(id))
             Gun(
               Weapons.byId(id),
               p.statsFor(Weapons.byId(id)),
@@ -115,6 +119,7 @@ class Player extends SpriteComponent with HasGameReference<DuskHordeGame> {
   /// Called by enemies. Dodging and the short grace after a bite ignore it.
   void takeBite(double damage, Vector2 from) {
     if (!isAlive || dodge.isInvincible || _hurtTimer > 0) return;
+    if (game.progress.testMode) damage *= testDamageTaken;
     hp = max(0, hp - damage);
     _hurtTimer = hurtGrace;
     _knock.setFrom(from..scale(140));
@@ -205,6 +210,7 @@ class Player extends SpriteComponent with HasGameReference<DuskHordeGame> {
     final muzzle = position + dir * 15;
     final sig = g.hasSignature ? g.def.signature : null;
     var damage = s.damage;
+    if (game.progress.testMode) damage *= testDamageDealt;
     var pierce = s.pierce;
     // Last Word: the magazine's final round hits three times as hard.
     if (sig == Signature.lastWord && g.mag.rounds == 0) damage *= 3;

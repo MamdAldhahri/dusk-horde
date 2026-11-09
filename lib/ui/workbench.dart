@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../game/dusk_horde_game.dart';
@@ -156,6 +157,22 @@ class _WorkbenchState extends State<Workbench> {
       child: ListView(
         scrollDirection: Axis.horizontal,
         children: [
+          // Only in debug builds (Run from Android Studio), never in a
+          // release build.
+          if (kDebugMode)
+            chip(
+              key: const Key('test-mode'),
+              label: p.testMode ? 'TEST MODE: ON' : 'TEST MODE: OFF',
+              lockedText: null,
+              selected: p.testMode,
+              onTap: () => _change(() {
+                p.testMode = !p.testMode;
+                // Turning it off hands back any borrowed guns.
+                p.loadout.removeWhere((g) => !p.hasGun(g));
+                if (p.loadout.isEmpty) p.loadout.add('pistol');
+                return true;
+              }),
+            ),
           for (final l in Levels.all)
             chip(
               key: Key('level-${l.id}'),
@@ -206,7 +223,7 @@ class _WorkbenchState extends State<Workbench> {
   }
 
   Widget _weaponCard(WeaponDef w) {
-    final unlocked = p.unlocked.contains(w.id);
+    final unlocked = p.hasGun(w.id);
     final selected = _weapon == w.id;
     final inLoadout = p.loadout.contains(w.id);
     return GestureDetector(
@@ -266,7 +283,7 @@ class _WorkbenchState extends State<Workbench> {
 
   Widget _tiers() {
     final w = Weapons.byId(_weapon);
-    if (!p.unlocked.contains(w.id)) {
+    if (!p.hasGun(w.id)) {
       return _panel(
         child: Center(
           child: Text(

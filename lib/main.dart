@@ -1,4 +1,5 @@
 import 'package:flame/game.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -16,7 +17,9 @@ Future<void> main() async {
   ]);
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   final store = PrefsSaveStore();
-  final progress = await store.load();
+  // Test Mode is a developer tool: never on in a release build.
+  final progress = await store.load()
+    ..testMode &= kDebugMode;
   runApp(DuskHordeApp(progress: progress, store: store));
 }
 

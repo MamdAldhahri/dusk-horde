@@ -17,6 +17,7 @@ class Hud extends PositionComponent with HasGameReference<DuskHordeGame> {
   late final RoundButton _dodge;
   late final RoundButton _reload;
   late final RoundButton _swap;
+  late final RoundButton _skip;
   late final TextComponent _scrap;
 
   static final _style = TextPaint(
@@ -45,6 +46,7 @@ class Hud extends PositionComponent with HasGameReference<DuskHordeGame> {
       },
     );
     _swap = RoundButton(label: 'SWAP', onPressed: () => game.player.swapGun());
+    _skip = RoundButton(label: 'SKIP', onPressed: () => game.waves.skipWave());
     _scrap = TextComponent(
       textRenderer: TextPaint(
         style: const TextStyle(color: Color(0xFFD9B45A), fontSize: 12),
@@ -63,6 +65,7 @@ class Hud extends PositionComponent with HasGameReference<DuskHordeGame> {
       _dodge,
       _reload,
       _swap,
+      _skip,
       _scrap,
     ]);
   }
@@ -76,6 +79,7 @@ class Hud extends PositionComponent with HasGameReference<DuskHordeGame> {
       _dodge.position = Vector2(size.x - pad - size.y * 0.09, size.y * 0.30);
       _reload.position = Vector2(size.x - pad - size.y * 0.25, size.y * 0.16);
       _swap.position = Vector2(size.x - pad - size.y * 0.27, size.y * 0.36);
+      _skip.position = Vector2(size.x - pad - size.y * 0.43, size.y * 0.20);
       _ammo.position = Vector2(size.x - pad - 150, 12);
       _scrap.position = Vector2(16, 32);
       _wave.position = Vector2(size.x / 2, 12);
@@ -138,7 +142,11 @@ class Hud extends PositionComponent with HasGameReference<DuskHordeGame> {
         ? '$name  reloading'
         : '$name  ${m.rounds} / $spare'
               '${game.player.marksmanReady ? '  ·  AIMED' : ''}';
-    _scrap.text = 'SCRAP ${game.runScrap}';
+    _scrap.text =
+        'SCRAP ${game.runScrap}${game.progress.testMode ? '  ·  TEST MODE' : ''}';
     _swap.isVisible = game.player.guns.length > 1;
+    _skip.isVisible =
+        game.progress.testMode &&
+        (w.phase == WavePhase.spawning || w.phase == WavePhase.fighting);
   }
 }
