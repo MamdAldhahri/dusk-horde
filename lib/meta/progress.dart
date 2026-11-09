@@ -1,0 +1,142 @@
+import 'dart:convert';
+
+import 'perks.dart';
+import 'weapon_catalog.dart';
+
+/// Everything that carries over between runs: banked scrap, boss cores,
+/// unlocks, upgrade choices and perks. Saved as JSON.
+class Progress {
+  Progress({
+    this.scrap = 0,
+    this.cores = 0,
+    this.bestWave = 0,
+    Set<String>? unlocked,
+    Map<String, List<int?>>? tiers,
+    Map<String, int>? perks,
+    List<String>? loadout,
+  }) : unlocked = unlocked ?? {'pistol'},
+       tiers = tiers ?? {},
+       perks = perks ?? {},
+       loadout = loadout ?? ['pistol'];
+
+  int scrap;
+  int cores;
+  int bestWave;
+  final Set<String> unlocked;
+
+  /// Per weapon: five slots, one per tier. Tiers 1-4 hold the chosen option
+  /// (0 or 1), tier 5 holds 0 once bought. Null = not bought.
+  final Map<String, List<int?>> tiers;
+  final Map<String, int> perks;
+
+  /// The guns taken into a run, in swap order (up to 2).
+  final List<String> loadout;
+
+  List<int?> tiersOf(String weapon) =>
+      tiers.putIfAbsent(weapon, () => List<int?>.filled(5, null));
+
+  /// How many tiers of [weapon] are bought (they are bought in order).
+  int tierCount(String weapon) =>
+      tiersOf(weapon).takeWhile((t) => t != null).length;
+
+  bool hasSignature(String weapon) => tiersOf(weapon)[4] != null;
+
+  int perkLevel(String id) => perks[id] ?? 0;
+
+  /// Why the next tier can't be bought right now, or null if it can.
+  String? whyNotBuyTier(String weapon) {
+    if (!unlocked.contains(weapon)) return 'Locked';
+    final n = tierCount(weapon);
+    if (n >= 5) return 'Maxed';
+    if (scrap < tierCosts[n]) return 'Need ${tierCosts[n]} scrap';
+    if (n == 4 && cores < tierFiveCores) return 'Need a boss core';
+    return null;
+  }
+
+  /// Buys the next tier. For tiers 1-4 pass which option (0 or 1).
+  bool buyTier(String weapon, {int choice = 0}) {
+    if (whyNotBuyTier(weapon) != null) return false;
+    final n = tierCount(weapon);
+    scrap -= tierCosts[n];
+    if (n == 4) cores -= tierFiveCores;
+    tiersOf(weapon)[n] = n == 4 ? 0 : choice;
+    return true;
+  }
+
+  /// Switches an already-bought tier to its other option, for free.
+  bool respec(String weapon, int tier, int choice) {
+    final t = tiersOf(weapon);
+    if (tier >= 4 || t[tier] == null) return false;
+    t[tier] = choice;
+    return true;
+  }
+
+  bool buyPerk(PerkDef perk) {
+    final lvl = perkLevel(perk.id);
+    if (lvl >= perk.maxLevel || scrap < perk.costs[lvl]) return false;
+    scrap -= perk.costs[lvl];
+    perks[perk.id] = lvl + 1;
+    return true;
+  }
+
+  /// [weapon]'s stats with every bought tier applied.
+  WeaponStats statsFor(WeaponDef weapon) {
+    var s = weapon.base;
+    final t = tiersOf(weapon.id);
+    for (var i = 0; i < 4; i++) {
+      final c = t[i];
+      if (c == null) break;
+      final (a, b) = standardTiers[i];
+      s = (c == 0 ? a : b).apply(s);
+    }
+    return s;
+  }
+
+  double get maxHp => 100 + 15.0 * perkLevel(Perks.tough.id);
+  double get dodgeCooldownScale => 1 - 0.15 * perkLevel(Perks.nimble.id);
+  double get scrapScale => 1 + 0.2 * perkLevel(Perks.scavenger.id);
+
+  void unlock(String weapon) {
+    if (unlocked.add(weapon) && loadout.length < 2) loadout.add(weapon);
+  }
+
+  /// Adds a finished run's takings.
+  void bank({required int scrap, required int cores, required int wave}) {
+    this.scrap += scrap;
+    this.cores += cores;
+    if (wave > bestWave) bestWave = wave;
+  }
+
+  Map<String, Object?> toJson() => {
+    'v': 1,
+    'scrap': scrap,
+    'cores': cores,
+    'bestWave': bestWave,
+    'unlocked': unlocked.toList(),
+    'tiers': tiers,
+    'perks': perks,
+    'loadout': loadout,
+  };
+
+  factory Progress.fromJson(Map<String, Object?> j) => Progress(
+    scrap: (j['scrap'] as num?)?.toInt() ?? 0,
+    cores: (j['cores'] as num?)?.toInt() ?? 0,
+    bestWave: (j['bestWave'] as num?)?.toInt() ?? 0,
+    unlocked: {...?(j['unlocked'] as List?)?.cast<String>()},
+    tiers: {
+      for (final e in ((j['tiers'] as Map?) ?? {}).entries)
+        e.key as String: [
+          for (final v in (e.value as List)) (v as num?)?.toInt(),
+        ],
+    },
+    perks: {
+      for (final e in ((j['perks'] as Map?) ?? {}).entries)
+        e.key as String: (e.value as num).toInt(),
+    },
+    loadout: (j['loadout'] as List?)?.cast<String>().toList(),
+  )..unlocked.add('pistol');
+
+  String encode() => jsonEncode(toJson());
+  static Progress decode(String s) =>
+      Progress.fromJson(jsonDecode(s) as Map<String, Object?>);
+}

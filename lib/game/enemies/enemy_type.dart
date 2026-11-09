@@ -26,6 +26,7 @@ class EnemyType {
     this.explodeRadius = 0,
     this.explodeDamage = 0,
     this.isBoss = false,
+    this.scrap = 2,
   });
 
   final String id;
@@ -49,6 +50,9 @@ class EnemyType {
   final double explodeRadius;
   final double explodeDamage;
   final bool isBoss;
+
+  /// Scrap earned for the kill.
+  final int scrap;
 }
 
 /// Level 1 roster. Speeds follow the plan as a share of the player's 120:
@@ -75,6 +79,7 @@ class Zombies {
     biteDamage: 18,
     scale: 1.4,
     dropChance: 1,
+    scrap: 15,
   );
 
   static const runner = EnemyType(
@@ -86,6 +91,7 @@ class Zombies {
     biteDamage: 6,
     biteCooldown: 0.7,
     gait: Gait.zigzag,
+    scrap: 3,
   );
 
   static const bloater = EnemyType(
@@ -98,6 +104,7 @@ class Zombies {
     dropChance: 0.2,
     explodeRadius: 52,
     explodeDamage: 30,
+    scrap: 6,
   );
 
   static const brute = EnemyType(
@@ -110,5 +117,6 @@ class Zombies {
     biteCooldown: 1.2,
     dropChance: 1,
     isBoss: true,
+    scrap: 60,
   );
 }

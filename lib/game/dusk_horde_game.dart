@@ -3,12 +3,15 @@ import 'dart:ui';
 
 import 'package:flame/game.dart';
 
+import '../meta/progress.dart';
+import '../meta/save_store.dart';
 import 'enemies/enemy.dart';
 import 'fx/explosion.dart';
 import 'fx/flashlight.dart';
 import 'game_assets.dart';
 import 'hud.dart';
 import 'input/virtual_stick.dart';
+import 'pickups/ammo_box.dart';
 import 'pickups/medkit.dart';
 import 'pickups/supply_crate.dart';
 import 'player/player.dart';
@@ -24,16 +27,35 @@ class DuskHordeGame extends FlameGame {
     Random? random,
     this.firstBreather = 3,
     this.mapFile = 'gas_station.tmx',
-  }) : random = random ?? Random();
+    Progress? progress,
+    SaveStore? store,
+    this.showWorkbenchOnStart = false,
+  }) : random = random ?? Random(),
+       progress = progress ?? Progress(),
+       store = store ?? MemorySaveStore();
 
   /// Height of the visible world in game pixels, whatever the phone.
   static const viewHeight = 360.0;
   static const gameOverOverlay = 'gameOver';
   static const dawnOverlay = 'dawn';
+  static const workbenchOverlay = 'workbench';
+
+  /// Wave reached at the Gas Station that unlocks the SMG.
+  static const smgUnlockWave = 5;
 
   final Random random;
   final double firstBreather;
   final String mapFile;
+  final Progress progress;
+  final SaveStore store;
+  final bool showWorkbenchOnStart;
+
+  /// Scrap and boss cores earned this run; banked when the run ends.
+  int runScrap = 0;
+  int runCores = 0;
+
+  /// Set when something unlocked this run, for the end-of-run panel.
+  String? unlockedThisRun;
 
   late final LevelMap level;
   Rect get arena => level.bounds;
@@ -79,6 +101,7 @@ class DuskHordeGame extends FlameGame {
     moveStick = VirtualStick(leftSide: true);
     aimStick = VirtualStick(leftSide: false);
     camera.viewport.addAll([moveStick, aimStick, Hud()]);
+    if (showWorkbenchOnStart) openWorkbench();
   }
 
   @override
@@ -91,8 +114,9 @@ class DuskHordeGame extends FlameGame {
   void shake(double amount) => _shake = max(_shake, amount);
 
   /// The first living enemy a point at [p] touches, if any.
-  Enemy? targetHitBy(Vector2 p) {
+  Enemy? targetHitBy(Vector2 p, {Set<Enemy> except = const {}}) {
     for (final e in waves.alive) {
+      if (except.contains(e)) continue;
       if (e.position.distanceTo(p) <= e.hitRadius) return e;
     }
     return null;
@@ -116,6 +140,36 @@ class DuskHordeGame extends FlameGame {
 
   void dropMedkit(Vector2 at) => world.add(Medkit(at, lifetime: 20));
 
+  /// Scrap for every kill; the Brute also gives a boss core. Guns that use
+  /// ammo make zombies drop ammo boxes now and then.
+  void onKill(Enemy e) {
+    runScrap += (e.type.scrap * progress.scrapScale).round();
+    if (e.type.isBoss) runCores++;
+    final usesAmmo = player.guns.any((g) => !g.mag.isInfinite);
+    if (usesAmmo && random.nextDouble() < 0.08) {
+      world.add(AmmoBox(e.position.clone()));
+    }
+  }
+
+  void onWaveStarted(int wave) {
+    if (wave >= smgUnlockWave && !progress.unlocked.contains('smg')) {
+      progress.unlock('smg');
+      unlockedThisRun = 'SMG';
+      store.save(progress);
+    }
+  }
+
+  /// Bonus scrap for clearing a wave: 10 x the wave number.
+  void onWaveCleared(int wave) {
+    runScrap += (10 * wave * progress.scrapScale).round();
+  }
+
+  /// Puts the run's takings into saved progress and writes it to disk.
+  void _bankRun() {
+    progress.bank(scrap: runScrap, cores: runCores, wave: waves.wave);
+    store.save(progress);
+  }
+
   /// Between waves: put a medkit on up to two empty pickup spots.
   void onBreather() {
     final taken = world.children.whereType<Medkit>().map((m) => m.position);
@@ -131,6 +185,7 @@ class DuskHordeGame extends FlameGame {
 
   void onPlayerDied() {
     isGameOver = true;
+    _bankRun();
     shake(8);
     _showOverlay(gameOverOverlay);
     pauseEngine();
@@ -139,6 +194,7 @@ class DuskHordeGame extends FlameGame {
   /// The final wave is cleared: the level is beaten.
   void onDawn() {
     isDawn = true;
+    _bankRun();
     _showOverlay(dawnOverlay);
     pauseEngine();
   }
@@ -147,13 +203,24 @@ class DuskHordeGame extends FlameGame {
     if (overlays.registeredOverlays.contains(name)) overlays.add(name);
   }
 
-  /// Back to wave 1 with full health.
+  /// Pauses on the workbench (main menu).
+  void openWorkbench() {
+    overlays.removeAll([gameOverOverlay, dawnOverlay]);
+    _showOverlay(workbenchOverlay);
+    pauseEngine();
+  }
+
+  /// Back to wave 1 with full health and the current loadout.
   void restart() {
     isGameOver = false;
     isDawn = false;
-    overlays.removeAll([gameOverOverlay, dawnOverlay]);
+    runScrap = 0;
+    runCores = 0;
+    unlockedThisRun = null;
+    overlays.removeAll([gameOverOverlay, dawnOverlay, workbenchOverlay]);
     waves.reset();
     world.children.whereType<Medkit>().forEach((m) => m.removeFromParent());
+    world.children.whereType<AmmoBox>().forEach((m) => m.removeFromParent());
     crate?.reset();
     player.revive();
     moveStick.vector.setZero();

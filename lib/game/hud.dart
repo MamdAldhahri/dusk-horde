@@ -6,7 +6,6 @@ import 'package:flame/components.dart';
 
 import 'dusk_horde_game.dart';
 import 'input/round_button.dart';
-import 'player/player.dart';
 import 'waves/wave_manager.dart';
 
 /// Ammo readout, dodge button and title, drawn in screen space.
@@ -17,6 +16,8 @@ class Hud extends PositionComponent with HasGameReference<DuskHordeGame> {
   late final TextComponent _wave;
   late final RoundButton _dodge;
   late final RoundButton _reload;
+  late final RoundButton _swap;
+  late final TextComponent _scrap;
 
   static final _style = TextPaint(
     style: const TextStyle(
@@ -37,11 +38,17 @@ class Hud extends PositionComponent with HasGameReference<DuskHordeGame> {
     );
     _reload = RoundButton(
       label: 'R',
-      onPressed: () => game.player.pistol.reload(),
+      onPressed: () => game.player.gun.mag.reload(),
       cooldownFraction: () {
-        final p = game.player.pistol;
-        return p.isReloading ? 1 - p.reloadProgress : 0;
+        final m = game.player.gun.mag;
+        return m.isReloading ? 1 - m.reloadProgress : 0;
       },
+    );
+    _swap = RoundButton(label: 'SWAP', onPressed: () => game.player.swapGun());
+    _scrap = TextComponent(
+      textRenderer: TextPaint(
+        style: const TextStyle(color: Color(0xFFD9B45A), fontSize: 12),
+      ),
     );
     addAll([
       TextComponent(
@@ -55,6 +62,8 @@ class Hud extends PositionComponent with HasGameReference<DuskHordeGame> {
       _wave,
       _dodge,
       _reload,
+      _swap,
+      _scrap,
     ]);
   }
 
@@ -66,7 +75,9 @@ class Hud extends PositionComponent with HasGameReference<DuskHordeGame> {
     if (isLoaded) {
       _dodge.position = Vector2(size.x - pad - size.y * 0.09, size.y * 0.30);
       _reload.position = Vector2(size.x - pad - size.y * 0.25, size.y * 0.16);
-      _ammo.position = Vector2(size.x - pad - 110, 12);
+      _swap.position = Vector2(size.x - pad - size.y * 0.27, size.y * 0.36);
+      _ammo.position = Vector2(size.x - pad - 150, 12);
+      _scrap.position = Vector2(16, 32);
       _wave.position = Vector2(size.x / 2, 12);
     }
   }
@@ -85,7 +96,7 @@ class Hud extends PositionComponent with HasGameReference<DuskHordeGame> {
   void render(Canvas canvas) {
     const r = Rect.fromLTWH(40, 16, 120, 10);
     canvas.drawRect(r, _barBack);
-    final f = (game.player.hp / Player.maxHp).clamp(0.0, 1.0);
+    final f = (game.player.hp / game.player.maxHealth).clamp(0.0, 1.0);
     canvas.drawRect(
       Rect.fromLTWH(r.left, r.top, r.width * f, r.height),
       _barFill,
@@ -116,9 +127,16 @@ class Hud extends PositionComponent with HasGameReference<DuskHordeGame> {
       _ when w.boss != null => 'WAVE ${w.wave}  ·  THE BRUTE',
       _ => 'WAVE ${w.wave} / ${w.plan.finalWave}  ·  ${w.remaining} left',
     };
-    final p = game.player.pistol;
-    _ammo.text = p.isReloading
-        ? 'PISTOL  reloading'
-        : 'PISTOL  ${p.rounds} / ∞';
+    final g = game.player.gun;
+    final m = g.mag;
+    final name = g.name.toUpperCase();
+    final spare = m.reserve == null ? '∞' : '${m.reserve}';
+    _ammo.text = m.isDry
+        ? '$name  empty'
+        : m.isReloading
+        ? '$name  reloading'
+        : '$name  ${m.rounds} / $spare';
+    _scrap.text = 'SCRAP ${game.runScrap}';
+    _swap.isVisible = game.player.guns.length > 1;
   }
 }

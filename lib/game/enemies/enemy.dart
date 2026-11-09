@@ -27,6 +27,18 @@ class Enemy extends SpriteComponent with HasGameReference<DuskHordeGame> {
   double get damageTakenScale => 1;
 
   final Vector2 knock = Vector2.zero();
+
+  /// Shredder bleed: stacks (max 5), 2 damage a second each, 3 s refresh.
+  int bleedStacks = 0;
+  double _bleedTime = 0;
+  static const maxBleed = 5;
+
+  void addBleed() {
+    if (!isAlive) return;
+    bleedStacks = min(maxBleed, bleedStacks + 1);
+    _bleedTime = 3;
+  }
+
   double biteTimer = 0;
   late final double _wobbleSeed = game.random.nextDouble() * 10;
   double age = 0;
@@ -98,6 +110,15 @@ class Enemy extends SpriteComponent with HasGameReference<DuskHordeGame> {
     if (!isAlive) return;
     age += dt;
     biteTimer -= dt;
+    if (bleedStacks > 0) {
+      _bleedTime -= dt;
+      hp -= bleedStacks * 2 * dt;
+      if (_bleedTime <= 0) bleedStacks = 0;
+      if (!isAlive) {
+        _die();
+        return;
+      }
+    }
 
     final player = game.player;
     final toPlayer = player.position - position;

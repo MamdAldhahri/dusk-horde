@@ -50,15 +50,24 @@ class RoundButton extends PositionComponent with TapCallbacks {
     _text.position = this.size / 2;
   }
 
+  /// Hidden buttons neither draw nor take taps.
+  bool isVisible = true;
+
   @override
   bool containsLocalPoint(Vector2 point) =>
-      (point - size / 2).length <= size.x / 2;
+      isVisible && (point - size / 2).length <= size.x / 2;
+
+  @override
+  void update(double dt) {
+    _text.text = isVisible ? label : '';
+  }
 
   @override
   void onTapDown(TapDownEvent event) => onPressed();
 
   @override
   void render(Canvas canvas) {
+    if (!isVisible) return;
     final c = (size / 2).toOffset();
     final r = size.x / 2;
     canvas.drawCircle(c, r, _fill);
