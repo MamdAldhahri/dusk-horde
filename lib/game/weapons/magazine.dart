@@ -4,6 +4,8 @@ class Magazine {
     required this.size,
     required this.shotsPerSecond,
     required this.reloadSeconds,
+    this.reserve,
+    this.maxReserve,
   }) : rounds = size;
 
   final int size;
@@ -11,10 +13,19 @@ class Magazine {
   final double reloadSeconds;
 
   int rounds;
+
+  /// Spare rounds. Null = infinite.
+  int? reserve;
+  final int? maxReserve;
+
   double _shotTimer = 0;
   double _reloadTimer = 0;
 
   bool get isReloading => _reloadTimer > 0;
+  bool get isInfinite => reserve == null;
+
+  /// Nothing loaded and nothing spare.
+  bool get isDry => rounds == 0 && (reserve ?? 1) == 0;
 
   /// 0..1 progress of the current reload (0 when not reloading).
   double get reloadProgress =>
@@ -26,7 +37,15 @@ class Magazine {
       _reloadTimer -= dt;
       if (_reloadTimer <= 0) {
         _reloadTimer = 0;
-        rounds = size;
+        final want = size - rounds;
+        final spare = reserve;
+        if (spare == null) {
+          rounds = size;
+        } else {
+          final take = want < spare ? want : spare;
+          rounds += take;
+          reserve = spare - take;
+        }
       }
     }
   }
@@ -45,7 +64,15 @@ class Magazine {
   }
 
   void reload() {
-    if (isReloading || rounds == size) return;
+    if (isReloading || rounds == size || (reserve ?? 1) == 0) return;
     _reloadTimer = reloadSeconds;
+  }
+
+  /// Adds spare ammo, up to [maxReserve].
+  void addReserve(int amount) {
+    final r = reserve;
+    if (r == null) return;
+    final cap = maxReserve;
+    reserve = cap == null ? r + amount : (r + amount).clamp(0, cap);
   }
 }

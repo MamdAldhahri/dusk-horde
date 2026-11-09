@@ -7,7 +7,9 @@ import 'package:flame/effects.dart';
 import '../dusk_horde_game.dart';
 import '../fx/muzzle_flash.dart';
 import '../game_assets.dart';
-import '../weapons/magazine.dart';
+import '../../meta/weapon_catalog.dart';
+import '../weapons/bullet.dart';
+import '../weapons/gun.dart';
 import '../world/obstacles.dart';
 import 'dodge.dart';
 
@@ -19,15 +21,14 @@ class Player extends SpriteComponent with HasGameReference<DuskHordeGame> {
   static const dodgeSpeed = 360.0;
   static const radius = 10.0;
   static const aimAssistAngle = 15 * pi / 180;
-  static const maxHp = 100.0;
   static const hurtGrace = 0.6; // seconds of safety after a bite
 
-  double hp = maxHp;
-  double get maxHealth => maxHp;
+  late double hp = maxHealth;
+  double get maxHealth => game.progress.maxHp;
 
   void heal(double amount) {
     if (!isAlive) return;
-    hp = min(maxHp, hp + amount);
+    hp = min(maxHealth, hp + amount);
     add(
       ColorEffect(
         const Color(0xFF60FF70),
@@ -47,8 +48,12 @@ class Player extends SpriteComponent with HasGameReference<DuskHordeGame> {
   /// Where the gun and flashlight point, radians (0 = right).
   double aimAngle = 0;
 
-  final dodge = Dodge();
-  final pistol = Magazine(size: 12, shotsPerSecond: 4, reloadSeconds: 1.2);
+  late Dodge dodge;
+
+  /// The loadout for this run, in swap order.
+  final List<Gun> guns = [];
+  int _gunIndex = 0;
+  Gun get gun => guns[_gunIndex];
   final Vector2 _dodgeDir = Vector2(1, 0);
 
   @override
@@ -56,6 +61,46 @@ class Player extends SpriteComponent with HasGameReference<DuskHordeGame> {
     sprite = Sprite(game.images.fromCache(GameAssets.player));
     size = sprite!.srcSize;
     paint = Paint()..filterQuality = FilterQuality.none;
+    equip();
+  }
+
+  /// Builds this run's guns and perks from saved progress.
+  void equip() {
+    final p = game.progress;
+    dodge = Dodge(cooldown: 1.5 * p.dodgeCooldownScale);
+    guns
+      ..clear()
+      ..addAll([
+        for (final id in p.loadout)
+          if (p.unlocked.contains(id))
+            Gun(
+              Weapons.byId(id),
+              p.statsFor(Weapons.byId(id)),
+              hasSignature: p.hasSignature(id),
+            ),
+      ]);
+    if (guns.isEmpty) guns.add(Gun(Weapons.pistol, Weapons.pistol.base));
+    _gunIndex = 0;
+  }
+
+  void swapGun() {
+    if (guns.length < 2) return;
+    _gunIndex = (_gunIndex + 1) % guns.length;
+  }
+
+  /// Ammo box: tops up every gun that uses ammo by 40% of its capacity.
+  void addAmmoShare(double share) {
+    for (final g in guns) {
+      final cap = g.mag.maxReserve;
+      if (cap != null) g.mag.addReserve((cap * share).round());
+    }
+  }
+
+  void refillAmmo() {
+    for (final g in guns) {
+      final cap = g.mag.maxReserve;
+      if (cap != null) g.mag.addReserve(cap);
+    }
   }
 
   /// Called by enemies. Dodging and the short grace after a bite ignore it.
@@ -76,7 +121,8 @@ class Player extends SpriteComponent with HasGameReference<DuskHordeGame> {
   }
 
   void revive() {
-    hp = maxHp;
+    equip();
+    hp = maxHealth;
     _hurtTimer = 0;
     _knock.setZero();
     position.setFrom(game.level.playerStart);
@@ -109,7 +155,9 @@ class Player extends SpriteComponent with HasGameReference<DuskHordeGame> {
     if (!isAlive) return;
     if (_hurtTimer > 0) _hurtTimer -= dt;
     dodge.update(dt);
-    pistol.update(dt);
+    for (final g in guns) {
+      g.mag.update(dt);
+    }
 
     final move = game.moveStick.vector;
     if (dodge.isRolling) {
@@ -135,14 +183,28 @@ class Player extends SpriteComponent with HasGameReference<DuskHordeGame> {
   }
 
   void _shoot() {
-    if (!pistol.tryFire()) return;
+    final g = gun;
+    if (!g.mag.tryFire()) return;
+    final s = g.stats;
     final dir = Vector2(cos(aimAngle), sin(aimAngle));
     final muzzle = position + dir * 15;
-    // Small random spread so it doesn't feel robotic.
-    final spread = (game.random.nextDouble() - 0.5) * 0.06;
-    game.bullets.fire(muzzle, aimAngle + spread, 10);
+    final spread = (game.random.nextDouble() - 0.5) * s.spread;
+    var damage = s.damage;
+    if (game.random.nextDouble() < s.critChance) damage *= 2;
+    final sig = g.hasSignature ? g.def.signature : null;
+    // Last Word: the magazine's final round hits three times as hard.
+    if (sig == Signature.lastWord && g.mag.rounds == 0) damage *= 3;
+    game.bullets.fire(
+      muzzle,
+      aimAngle + spread,
+      ShotPayload(
+        damage: damage,
+        pierce: s.pierce,
+        bleed: sig == Signature.shredder,
+      ),
+    );
     game.world.add(MuzzleFlash(muzzle));
-    game.shake(0.8);
+    game.shake(g.def.id == 'smg' ? 0.5 : 0.8);
   }
 
   /// Nudges the aim toward the nearest living target within 15 degrees.

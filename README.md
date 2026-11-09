@@ -19,6 +19,10 @@ flutter test
 | `lib/main.dart` | App entry: landscape lock, full screen, starts the game |
 | `lib/game/dusk_horde_game.dart` | The Flame game |
 | `lib/game/game_assets.dart` | The single list of every sprite file the game loads |
+| `lib/meta/weapon_catalog.dart` | Every gun's base stats, the upgrade tiers and their costs. Tune balance here |
+| `lib/meta/perks.dart` | Survivor perks and their costs |
+| `lib/meta/progress.dart` | What carries over between runs (scrap, cores, unlocks, tiers, perks), saved as JSON |
+| `lib/ui/` | Flutter menus: the workbench and the end-of-run panels |
 | `assets/images/sprites/` | Placeholder sprites (32 x 32, Brute 48 x 48, all facing right) |
 | `assets/tiles/` | Tiled maps (`.tmx`) and their tileset PNGs. Open `gas_station.tmx` in Tiled to edit Level 1 |
 | `tools/maps/make_gas_station.py` | Script that made the first Gas Station map and tileset (edit the map in Tiled from now on) |

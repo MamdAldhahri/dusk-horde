@@ -55,6 +55,7 @@ class WaveManager extends Component with HasGameReference<DuskHordeGame> {
     alive.remove(e);
     kills++;
     if (identical(e, boss)) boss = null;
+    game.onKill(e);
   }
 
   @override
@@ -72,6 +73,7 @@ class WaveManager extends Component with HasGameReference<DuskHordeGame> {
         if (_queue.isEmpty) phase = WavePhase.fighting;
       case WavePhase.fighting:
         if (alive.isEmpty) {
+          game.onWaveCleared(wave);
           if (wave >= plan.finalWave) {
             phase = WavePhase.dawn;
             game.onDawn();
@@ -88,6 +90,7 @@ class WaveManager extends Component with HasGameReference<DuskHordeGame> {
 
   void _startWave() {
     wave++;
+    game.onWaveStarted(wave);
     _queue
       ..clear()
       ..addAll(plan.wave(wave, game.random).enemies);
