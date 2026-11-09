@@ -33,7 +33,10 @@ class Bullet extends PositionComponent with HasGameReference<DuskHordeGame> {
   void update(double dt) {
     _age += dt;
     position.addScaled(velocity, dt);
-    if (_age > lifetime || !game.arena.contains(position.toOffset())) {
+    final o = position.toOffset();
+    if (_age > lifetime ||
+        !game.arena.contains(o) ||
+        game.obstacles.any((r) => r.contains(o))) {
       game.bullets.release(this);
       return;
     }
