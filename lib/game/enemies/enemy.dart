@@ -5,6 +5,7 @@ import 'package:flame/components.dart';
 import 'package:flame/effects.dart';
 
 import '../dusk_horde_game.dart';
+import '../player/player.dart';
 import '../world/obstacles.dart';
 import 'enemy_type.dart';
 
@@ -38,6 +39,20 @@ class Enemy extends SpriteComponent with HasGameReference<DuskHordeGame> {
     bleedStacks = min(maxBleed, bleedStacks + 1);
     _bleedTime = 3;
   }
+
+  /// Dragon's Breath fire: 5 damage a second, refreshed to 3 s per hit.
+  double burnTime = 0;
+  static const burnDps = 5.0;
+
+  void ignite() {
+    if (isAlive) burnTime = 3;
+  }
+
+  /// Rooted to the spot (Brood Pods): no walking, no knockback.
+  bool get isStatic => false;
+
+  /// Whether aim assist may lock on (Stalkers only when lit).
+  bool get isTargetable => true;
 
   double biteTimer = 0;
   late final double _wobbleSeed = game.random.nextDouble() * 10;
@@ -110,10 +125,16 @@ class Enemy extends SpriteComponent with HasGameReference<DuskHordeGame> {
     if (!isAlive) return;
     age += dt;
     biteTimer -= dt;
-    if (bleedStacks > 0) {
-      _bleedTime -= dt;
-      hp -= bleedStacks * 2 * dt;
-      if (_bleedTime <= 0) bleedStacks = 0;
+    if (bleedStacks > 0 || burnTime > 0) {
+      if (bleedStacks > 0) {
+        _bleedTime -= dt;
+        hp -= bleedStacks * 2 * dt;
+        if (_bleedTime <= 0) bleedStacks = 0;
+      }
+      if (burnTime > 0) {
+        burnTime -= dt;
+        hp -= burnDps * dt;
+      }
       if (!isAlive) {
         _die();
         return;
@@ -123,6 +144,11 @@ class Enemy extends SpriteComponent with HasGameReference<DuskHordeGame> {
     final player = game.player;
     final toPlayer = player.position - position;
     final dist = toPlayer.length;
+
+    if (isStatic) {
+      _bite(player, toPlayer, dist);
+      return;
+    }
 
     final wasInside = game.arena.contains(position.toOffset());
     final step = desiredVelocity(dt, toPlayer, dist)..add(_separation());
@@ -144,7 +170,11 @@ class Enemy extends SpriteComponent with HasGameReference<DuskHordeGame> {
     }
 
     faceToward(toPlayer);
+    _bite(player, toPlayer, dist);
+  }
 
+  void _bite(Player player, Vector2 toPlayer, double dist) {
+    if (contactDamage <= 0) return;
     if (dist <= type.radius + player.radiusForBites && biteTimer <= 0) {
       biteTimer = type.biteCooldown;
       player.takeBite(contactDamage, toPlayer.normalized());

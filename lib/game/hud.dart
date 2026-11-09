@@ -118,14 +118,15 @@ class Hud extends PositionComponent with HasGameReference<DuskHordeGame> {
   @override
   void update(double dt) {
     final w = game.waves;
+    final of = w.endless ? 'ENDLESS' : '/ ${w.plan.finalWave}';
     _wave.text = switch (w.phase) {
       WavePhase.breather when w.wave == 0 =>
         'GET READY  ${w.breatherLeft.ceil()}',
       WavePhase.breather =>
         'WAVE ${w.wave} CLEARED  ·  next in ${w.breatherLeft.ceil()}',
       WavePhase.dawn => 'DAWN',
-      _ when w.boss != null => 'WAVE ${w.wave}  ·  THE BRUTE',
-      _ => 'WAVE ${w.wave} / ${w.plan.finalWave}  ·  ${w.remaining} left',
+      _ when w.boss != null => 'WAVE ${w.wave}  ·  ${w.boss!.type.name}',
+      _ => 'WAVE ${w.wave} $of  ·  ${w.remaining} left',
     };
     final g = game.player.gun;
     final m = g.mag;
@@ -135,7 +136,8 @@ class Hud extends PositionComponent with HasGameReference<DuskHordeGame> {
         ? '$name  empty'
         : m.isReloading
         ? '$name  reloading'
-        : '$name  ${m.rounds} / $spare';
+        : '$name  ${m.rounds} / $spare'
+              '${game.player.marksmanReady ? '  ·  AIMED' : ''}';
     _scrap.text = 'SCRAP ${game.runScrap}';
     _swap.isVisible = game.player.guns.length > 1;
   }

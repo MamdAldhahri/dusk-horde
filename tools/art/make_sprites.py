@@ -127,6 +127,82 @@ def brute():
     return outline(img)
 
 
+ICHOR = [(60, 150, 70, 255), (40, 110, 50, 255), (90, 190, 90, 255)]
+
+
+def skitter():
+    img, d = canvas()
+    leg = (70, 40, 90, 255)
+    for (x0, y0, x1, y1) in [(14, 12, 9, 7), (17, 12, 19, 6), (12, 14, 6, 11),
+                             (14, 20, 9, 25), (17, 20, 19, 26), (12, 18, 6, 21)]:
+        d.line([x0, y0, x1, y1], fill=leg)
+    ell(d, 15, 16, 6, 4, (110, 60, 140, 255))                  # carapace
+    ell(d, 14, 15, 3, 2, (150, 96, 180, 255))
+    ell(d, 21, 16, 3, 3, (90, 50, 110, 255))                   # head
+    d.line([23, 14, 26, 13], fill=(220, 200, 240, 255))         # mandibles
+    d.line([23, 18, 26, 19], fill=(220, 200, 240, 255))
+    d.point((22, 15), fill=(120, 255, 140, 255))
+    d.point((22, 17), fill=(120, 255, 140, 255))
+    return outline(img)
+
+
+def lancer():
+    img, d = canvas()
+    d.rectangle([16, 9, 22, 10], fill=(60, 70, 90, 255))       # arms
+    d.rectangle([16, 21, 22, 22], fill=(60, 70, 90, 255))
+    d.rectangle([20, 14, 29, 17], fill=(70, 80, 110, 255))     # plasma lance
+    d.rectangle([27, 15, 30, 16], fill=(120, 230, 255, 255))   # charged tip
+    ell(d, 13, 16, 6, 8, (54, 62, 84, 255))                    # tall thin body
+    ell(d, 12, 13, 3, 3, (80, 92, 120, 255))
+    ell(d, 16, 16, 4, 3, (150, 160, 180, 255))                 # elongated skull
+    d.point((18, 15), fill=(120, 230, 255, 255))
+    d.point((18, 17), fill=(120, 230, 255, 255))
+    return outline(img)
+
+
+def stalker():
+    img, d = canvas()
+    skin = (40, 44, 48, 255)
+    d.line([14, 10, 26, 7], fill=skin, width=2)                 # long clawed arms
+    d.line([14, 22, 26, 25], fill=skin, width=2)
+    d.point((27, 7), fill=(200, 200, 210, 255))
+    d.point((27, 25), fill=(200, 200, 210, 255))
+    ell(d, 12, 16, 7, 6, (30, 34, 38, 255))                    # hunched body
+    ell(d, 11, 14, 3, 2, (54, 60, 66, 255))
+    ell(d, 19, 16, 4, 3, (46, 50, 56, 255))                    # eyeless head
+    d.line([21, 15, 23, 15], fill=(190, 40, 60, 255))           # mouth slit
+    return outline(img)
+
+
+def brood_pod():
+    img, d = canvas()
+    ell(d, 16, 16, 13, 13, (70, 30, 80, 255))                  # hive base
+    for (x, y) in [(5, 10), (27, 12), (8, 26), (25, 25)]:
+        ell(d, x, y, 2, 2, (90, 40, 100, 255))
+    ell(d, 16, 16, 9, 10, (150, 70, 150, 255))                 # pod
+    ell(d, 14, 13, 4, 4, (190, 110, 190, 255))
+    d.line([16, 8, 16, 24], fill=(100, 40, 110, 255))           # seam
+    ell(d, 16, 17, 2, 3, (120, 255, 140, 255))                 # glowing core
+    return outline(img)
+
+
+def warden():
+    img, d = canvas(64)
+    leg = (64, 70, 84, 255)
+    for (x1, y1) in [(6, 6), (6, 58), (54, 32)]:               # three legs
+        d.line([32, 32, x1, y1], fill=leg, width=4)
+        ell(d, x1, y1, 3, 3, (90, 96, 110, 255))
+    ell(d, 30, 32, 16, 16, (82, 88, 104, 255))                 # armoured body
+    ell(d, 27, 28, 8, 7, (110, 118, 136, 255))
+    d.rectangle([40, 28, 55, 35], fill=(56, 60, 72, 255))      # beam emitter
+    d.rectangle([54, 30, 58, 33], fill=(255, 120, 90, 255))
+    ell(d, 24, 32, 5, 5, (60, 20, 30, 255))                    # weak spot (closed)
+    ell(d, 24, 32, 2, 2, (255, 150, 60, 255))
+    d.point((44, 26), fill=(255, 90, 60, 255))
+    d.point((44, 37), fill=(255, 90, 60, 255))
+    return outline(img)
+
+
 sprites = {
     "player": player(),
     "zombie_shambler": zombie((120, 132, 104, 255), (78, 70, 86, 255)),
@@ -134,6 +210,11 @@ sprites = {
     "zombie_bloater": bloater(),
     "zombie_spitter": spitter(),
     "zombie_brute": brute(),
+    "alien_skitter": skitter(),
+    "alien_lancer": lancer(),
+    "alien_stalker": stalker(),
+    "alien_brood_pod": brood_pod(),
+    "alien_warden": warden(),
 }
 for name, im in sprites.items():
     im.save(os.path.join(OUT, f"{name}.png"))
@@ -147,10 +228,10 @@ font = ImageFont.load_default()
 sd = ImageDraw.Draw(sheet)
 x = 20
 for name, im in cells:
-    k = S // 2 if im.size[0] == 48 else S // 2
-    big = im.resize((im.size[0] * 4, im.size[1] * 4), Image.NEAREST)
+    f = 3 if im.size[0] > 48 else 4
+    big = im.resize((im.size[0] * f, im.size[1] * f), Image.NEAREST)
     sheet.alpha_composite(big, (x + (192 - big.size[0]) // 2, 20 + (192 - big.size[1]) // 2))
-    sd.text((x, 220), name.replace("zombie_", ""), fill=(200, 190, 180, 255), font=font)
+    sd.text((x, 220), name.replace("zombie_", "").replace("alien_", ""), fill=(200, 190, 180, 255), font=font)
     x += 200
 sheet.save(os.path.join(OUT, "preview_sheet.png"))
 

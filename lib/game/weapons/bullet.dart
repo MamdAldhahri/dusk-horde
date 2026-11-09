@@ -11,6 +11,8 @@ class ShotPayload {
     required this.damage,
     this.pierce = 0,
     this.bleed = false,
+    this.burn = false,
+    this.range = 390,
   });
   final double damage;
 
@@ -19,6 +21,12 @@ class ShotPayload {
 
   /// Adds a bleed stack (SMG Shredder).
   final bool bleed;
+
+  /// Sets the target on fire (Shotgun Dragon's Breath).
+  final bool burn;
+
+  /// How far it flies, pixels.
+  final double range;
 }
 
 /// A pooled round. Inactive bullets stay out of the world and are reused,
@@ -27,7 +35,6 @@ class Bullet extends PositionComponent with HasGameReference<DuskHordeGame> {
   Bullet() : super(size: Vector2(7, 2), anchor: Anchor.center);
 
   static const speed = 560.0;
-  static const lifetime = 0.7;
 
   final Vector2 velocity = Vector2.zero();
   ShotPayload payload = const ShotPayload(damage: 10);
@@ -55,7 +62,7 @@ class Bullet extends PositionComponent with HasGameReference<DuskHordeGame> {
     _age += dt;
     position.addScaled(velocity, dt);
     final o = position.toOffset();
-    if (_age > lifetime ||
+    if (_age * speed > payload.range ||
         !game.arena.contains(o) ||
         game.obstacles.any((r) => r.contains(o))) {
       game.bullets.release(this);
@@ -66,6 +73,7 @@ class Bullet extends PositionComponent with HasGameReference<DuskHordeGame> {
       _hit.add(hit);
       hit.takeHit(payload.damage, velocity.normalized());
       if (payload.bleed) hit.addBleed();
+      if (payload.burn) hit.ignite();
       if (_piercesLeft-- <= 0) game.bullets.release(this);
     }
   }

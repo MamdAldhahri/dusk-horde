@@ -6,11 +6,13 @@ import 'package:flame/game.dart';
 import '../meta/progress.dart';
 import '../meta/save_store.dart';
 import 'enemies/enemy.dart';
+import 'enemies/plasma_bolt.dart';
 import 'fx/explosion.dart';
 import 'fx/flashlight.dart';
 import 'game_assets.dart';
 import 'hud.dart';
 import 'input/virtual_stick.dart';
+import 'levels.dart';
 import 'pickups/ammo_box.dart';
 import 'pickups/medkit.dart';
 import 'pickups/supply_crate.dart';
@@ -21,12 +23,14 @@ import 'world/flow_field.dart';
 import 'world/level_map.dart';
 import 'world/obstacle_layer.dart';
 
-/// Level 1: the Gas Station. Survive 10 waves of zombies until dawn.
+/// The whole game: one level at a time (the Gas Station or the Crash Site),
+/// in story mode (survive until dawn) or Endless.
 class DuskHordeGame extends FlameGame {
   DuskHordeGame({
     Random? random,
     this.firstBreather = 3,
-    this.mapFile = 'gas_station.tmx',
+    this.startLevel = Levels.gasStation,
+    this.endless = false,
     Progress? progress,
     SaveStore? store,
     this.showWorkbenchOnStart = false,
@@ -43,31 +47,40 @@ class DuskHordeGame extends FlameGame {
   /// Wave reached at the Gas Station that unlocks the SMG.
   static const smgUnlockWave = 5;
 
+  /// Wave reached at the Crash Site that unlocks the rifle.
+  static const rifleUnlockWave = 8;
+
   final Random random;
   final double firstBreather;
-  final String mapFile;
+  final LevelDef startLevel;
   final Progress progress;
   final SaveStore store;
   final bool showWorkbenchOnStart;
+
+  /// The level being played and whether this run is Endless.
+  late LevelDef levelDef;
+  bool endless;
 
   /// Scrap and boss cores earned this run; banked when the run ends.
   int runScrap = 0;
   int runCores = 0;
 
-  /// Set when something unlocked this run, for the end-of-run panel.
-  String? unlockedThisRun;
+  /// What this run unlocked, for the end-of-run panel.
+  final List<String> unlockedThisRun = [];
 
-  late final LevelMap level;
+  late LevelMap level;
   Rect get arena => level.bounds;
-  late final List<Rect> obstacles;
+  late List<Rect> obstacles;
   List<Vector2> get spawnPoints => level.spawns;
 
   late final Player player;
   late final BulletPool bullets;
-  late final FlowField flowField;
+  late FlowField flowField;
   late final WaveManager waves;
   late final VirtualStick moveStick;
   late final VirtualStick aimStick;
+  late final Flashlight flashlight;
+  ObstacleLayer? _obstacleLayer;
   SupplyCrate? crate;
 
   bool isGameOver = false;
@@ -80,28 +93,43 @@ class DuskHordeGame extends FlameGame {
   @override
   Future<void> onLoad() async {
     await images.loadAll(GameAssets.all);
-    level = await LevelMap.load(mapFile);
-    obstacles = level.obstacles;
-
-    flowField = FlowField(bounds: arena, obstacles: obstacles);
     bullets = BulletPool(world);
-    player = Player()..position = level.playerStart.clone();
-    waves = WaveManager(firstBreather: firstBreather);
+    player = Player();
+    waves = WaveManager(plan: startLevel.plan, firstBreather: firstBreather)
+      ..endless = endless;
+    flashlight = Flashlight();
+    await _loadLevel(startLevel);
+    player.position = level.playerStart.clone();
 
-    world.addAll([
-      level.component,
-      ObstacleLayer(level.blockers),
-      player,
-      Flashlight(),
-    ]);
-    final cratePos = level.supplyCrate;
-    if (cratePos != null) world.add(crate = SupplyCrate(cratePos));
+    world.addAll([player, flashlight]);
     add(waves);
 
     moveStick = VirtualStick(leftSide: true);
     aimStick = VirtualStick(leftSide: false);
     camera.viewport.addAll([moveStick, aimStick, Hud()]);
     if (showWorkbenchOnStart) openWorkbench();
+  }
+
+  /// Swaps the map, its collision and its waves for [def].
+  Future<void> _loadLevel(LevelDef def) async {
+    final next = await LevelMap.load(def.mapFile);
+    if (isLoaded) {
+      level.component.removeFromParent();
+      _obstacleLayer?.removeFromParent();
+      crate?.removeFromParent();
+      crate = null;
+    }
+    levelDef = def;
+    level = next;
+    obstacles = level.obstacles;
+    flowField = FlowField(bounds: arena, obstacles: obstacles);
+    waves.plan = def.plan;
+    world.addAll([
+      level.component,
+      _obstacleLayer = ObstacleLayer(level.blockers),
+    ]);
+    final cratePos = level.supplyCrate;
+    if (cratePos != null) world.add(crate = SupplyCrate(cratePos));
   }
 
   @override
@@ -122,8 +150,8 @@ class DuskHordeGame extends FlameGame {
     return null;
   }
 
-  /// A burst that hurts the player and other zombies (Bloater death).
-  /// Zombies take double, so popping a Bloater in a crowd pays off.
+  /// A burst that hurts the player and other enemies (Bloater death).
+  /// Enemies take double, so popping a Bloater in a crowd pays off.
   void explode(Vector2 at, double radius, double damage) {
     world.add(Explosion(at, radius));
     shake(5);
@@ -140,11 +168,14 @@ class DuskHordeGame extends FlameGame {
 
   void dropMedkit(Vector2 at) => world.add(Medkit(at, lifetime: 20));
 
-  /// Scrap for every kill; the Brute also gives a boss core. Guns that use
-  /// ammo make zombies drop ammo boxes now and then.
+  /// Scrap for every kill. A boss gives a core the first time its level is
+  /// beaten, and every time in Endless. Guns that use ammo make enemies
+  /// drop ammo boxes now and then.
   void onKill(Enemy e) {
     runScrap += (e.type.scrap * progress.scrapScale).round();
-    if (e.type.isBoss) runCores++;
+    if (e.type.isBoss && (endless || !progress.beaten.contains(levelDef.id))) {
+      runCores++;
+    }
     final usesAmmo = player.guns.any((g) => !g.mag.isInfinite);
     if (usesAmmo && random.nextDouble() < 0.08) {
       world.add(AmmoBox(e.position.clone()));
@@ -152,11 +183,19 @@ class DuskHordeGame extends FlameGame {
   }
 
   void onWaveStarted(int wave) {
-    if (wave >= smgUnlockWave && !progress.unlocked.contains('smg')) {
-      progress.unlock('smg');
-      unlockedThisRun = 'SMG';
-      store.save(progress);
+    if (levelDef == Levels.gasStation && wave >= smgUnlockWave) {
+      _unlockGun('smg', 'SMG');
     }
+    if (levelDef == Levels.crashSite && wave >= rifleUnlockWave) {
+      _unlockGun('rifle', 'Assault Rifle');
+    }
+  }
+
+  void _unlockGun(String id, String name) {
+    if (progress.unlocked.contains(id)) return;
+    progress.unlock(id);
+    unlockedThisRun.add(name);
+    store.save(progress);
   }
 
   /// Bonus scrap for clearing a wave: 10 x the wave number.
@@ -166,7 +205,13 @@ class DuskHordeGame extends FlameGame {
 
   /// Puts the run's takings into saved progress and writes it to disk.
   void _bankRun() {
-    progress.bank(scrap: runScrap, cores: runCores, wave: waves.wave);
+    progress.bank(
+      scrap: runScrap,
+      cores: runCores,
+      wave: waves.wave,
+      level: levelDef.id,
+      endless: endless,
+    );
     store.save(progress);
   }
 
@@ -191,9 +236,17 @@ class DuskHordeGame extends FlameGame {
     pauseEngine();
   }
 
-  /// The final wave is cleared: the level is beaten.
+  /// The final wave is cleared: the level is beaten. A first clear opens
+  /// what comes next.
   void onDawn() {
     isDawn = true;
+    final first = progress.beaten.add(levelDef.id);
+    if (levelDef == Levels.gasStation) {
+      _unlockGun('shotgun', 'Shotgun');
+      if (first) unlockedThisRun.add('The Crash Site');
+    } else if (levelDef == Levels.crashSite && first) {
+      unlockedThisRun.add('Endless mode');
+    }
     _bankRun();
     _showOverlay(dawnOverlay);
     pauseEngine();
@@ -210,17 +263,35 @@ class DuskHordeGame extends FlameGame {
     pauseEngine();
   }
 
+  /// Starts a run on the level and mode picked on the workbench, loading
+  /// that map first if it isn't the current one.
+  Future<void> deploy() async {
+    final def = Levels.byId(progress.level);
+    final open = progress.isLevelOpen(def.id);
+    final target = open ? def : Levels.gasStation;
+    if (target != levelDef) await _loadLevel(target);
+    endless = progress.endless && progress.endlessOpen;
+    restart();
+  }
+
   /// Back to wave 1 with full health and the current loadout.
   void restart() {
     isGameOver = false;
     isDawn = false;
     runScrap = 0;
     runCores = 0;
-    unlockedThisRun = null;
+    unlockedThisRun.clear();
     overlays.removeAll([gameOverOverlay, dawnOverlay, workbenchOverlay]);
-    waves.reset();
-    world.children.whereType<Medkit>().forEach((m) => m.removeFromParent());
-    world.children.whereType<AmmoBox>().forEach((m) => m.removeFromParent());
+    waves
+      ..endless = endless
+      ..reset();
+    for (final c in [
+      ...world.children.whereType<Medkit>(),
+      ...world.children.whereType<AmmoBox>(),
+      ...world.children.whereType<PlasmaBolt>(),
+    ]) {
+      c.removeFromParent();
+    }
     crate?.reset();
     player.revive();
     moveStick.vector.setZero();

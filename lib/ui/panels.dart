@@ -24,10 +24,10 @@ class RunRewards extends StatelessWidget {
             fontWeight: FontWeight.w700,
           ),
         ),
-        if (game.unlockedThisRun != null) ...[
+        for (final u in game.unlockedThisRun) ...[
           const SizedBox(height: 6),
           Text(
-            '${game.unlockedThisRun} unlocked!',
+            '$u unlocked!',
             style: const TextStyle(
               color: Palette.core,
               fontSize: 16,
@@ -63,7 +63,7 @@ class _PanelButtons extends StatelessWidget {
         FilledButton(
           key: const Key('retry'),
           style: style,
-          onPressed: game.restart,
+          onPressed: game.deploy,
           child: Text(retryLabel, style: const TextStyle(fontSize: 16)),
         ),
         const SizedBox(width: 16),
@@ -103,9 +103,15 @@ class GameOverPanel extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
+              '${game.endless ? 'Endless  ·  ' : ''}'
               'Reached wave ${game.waves.wave}  ·  ${game.waves.kills} kills',
               style: const TextStyle(color: Color(0xFFB8AFA6), fontSize: 16),
             ),
+            if (game.endless)
+              Text(
+                'Best: wave ${game.progress.endlessBest[game.levelDef.id] ?? 0}',
+                style: const TextStyle(color: Palette.muted, fontSize: 13),
+              ),
             const SizedBox(height: 12),
             RunRewards(game: game),
             const SizedBox(height: 24),
@@ -152,7 +158,8 @@ class DawnPanel extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'You survived the night at the Gas Station  ·  ${game.waves.kills} kills',
+              'You survived the night at ${game.levelDef.name}  ·  '
+              '${game.waves.kills} kills',
               style: const TextStyle(color: Color(0xFFFFF3E0), fontSize: 16),
             ),
             const SizedBox(height: 12),

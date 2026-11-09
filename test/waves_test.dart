@@ -10,7 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('WavePlan', () {
-    const plan = WavePlan();
+    const plan = ZombiePlan();
     test('wave 1 is 9 shamblers, no runners yet', () {
       final w = plan.wave(1, Random(1));
       expect(w.enemies.length, 9);

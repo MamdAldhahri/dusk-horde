@@ -127,7 +127,7 @@ void main() {
   ) async {
     await game.ready();
     game.waves
-      ..wave = const WavePlan().finalWave
+      ..wave = const ZombiePlan().finalWave
       ..phase = WavePhase.fighting;
     await run(game, 2);
     expect(game.waves.phase, WavePhase.dawn);
@@ -138,7 +138,7 @@ void main() {
   });
 
   test('wave plan: elite on 5, bloaters from 6, Brute on 10', () {
-    const plan = WavePlan();
+    const plan = ZombiePlan();
     expect(plan.wave(5, Random(1)).countOf(Zombies.eliteShambler), 1);
     expect(plan.wave(5, Random(1)).countOf(Zombies.bloater), 0);
     expect(plan.wave(6, Random(1)).countOf(Zombies.bloater), greaterThan(0));

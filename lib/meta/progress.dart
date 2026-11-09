@@ -14,10 +14,18 @@ class Progress {
     Map<String, List<int?>>? tiers,
     Map<String, int>? perks,
     List<String>? loadout,
+    Set<String>? beaten,
+    Map<String, int>? bestWaves,
+    Map<String, int>? endlessBest,
+    this.level = 'gas_station',
+    this.endless = false,
   }) : unlocked = unlocked ?? {'pistol'},
        tiers = tiers ?? {},
        perks = perks ?? {},
-       loadout = loadout ?? ['pistol'];
+       loadout = loadout ?? ['pistol'],
+       beaten = beaten ?? {},
+       bestWaves = bestWaves ?? {},
+       endlessBest = endlessBest ?? {};
 
   int scrap;
   int cores;
@@ -31,6 +39,27 @@ class Progress {
 
   /// The guns taken into a run, in swap order (up to 2).
   final List<String> loadout;
+
+  /// Levels survived until dawn at least once.
+  final Set<String> beaten;
+
+  /// Best wave reached per level, story and Endless.
+  final Map<String, int> bestWaves;
+  final Map<String, int> endlessBest;
+
+  /// The level and mode picked on the workbench.
+  String level;
+  bool endless;
+
+  /// Level 1 is always open; each level opens the next once beaten.
+  bool isLevelOpen(String id) => switch (id) {
+    'gas_station' => true,
+    'crash_site' => beaten.contains('gas_station'),
+    _ => false,
+  };
+
+  /// Beating Level 2 opens Endless on both maps.
+  bool get endlessOpen => beaten.contains('crash_site');
 
   List<int?> tiersOf(String weapon) =>
       tiers.putIfAbsent(weapon, () => List<int?>.filled(5, null));
@@ -101,14 +130,22 @@ class Progress {
   }
 
   /// Adds a finished run's takings.
-  void bank({required int scrap, required int cores, required int wave}) {
+  void bank({
+    required int scrap,
+    required int cores,
+    required int wave,
+    String level = 'gas_station',
+    bool endless = false,
+  }) {
     this.scrap += scrap;
     this.cores += cores;
     if (wave > bestWave) bestWave = wave;
+    final best = endless ? endlessBest : bestWaves;
+    if (wave > (best[level] ?? 0)) best[level] = wave;
   }
 
   Map<String, Object?> toJson() => {
-    'v': 1,
+    'v': 2,
     'scrap': scrap,
     'cores': cores,
     'bestWave': bestWave,
@@ -116,6 +153,16 @@ class Progress {
     'tiers': tiers,
     'perks': perks,
     'loadout': loadout,
+    'beaten': beaten.toList(),
+    'bestWaves': bestWaves,
+    'endlessBest': endlessBest,
+    'level': level,
+    'endless': endless,
+  };
+
+  static Map<String, int> _intMap(Object? m) => {
+    for (final e in ((m as Map?) ?? {}).entries)
+      e.key as String: (e.value as num).toInt(),
   };
 
   factory Progress.fromJson(Map<String, Object?> j) => Progress(
@@ -129,11 +176,13 @@ class Progress {
           for (final v in (e.value as List)) (v as num?)?.toInt(),
         ],
     },
-    perks: {
-      for (final e in ((j['perks'] as Map?) ?? {}).entries)
-        e.key as String: (e.value as num).toInt(),
-    },
+    perks: _intMap(j['perks']),
     loadout: (j['loadout'] as List?)?.cast<String>().toList(),
+    beaten: {...?(j['beaten'] as List?)?.cast<String>()},
+    bestWaves: _intMap(j['bestWaves']),
+    endlessBest: _intMap(j['endlessBest']),
+    level: j['level'] as String? ?? 'gas_station',
+    endless: j['endless'] as bool? ?? false,
   )..unlocked.add('pistol');
 
   String encode() => jsonEncode(toJson());

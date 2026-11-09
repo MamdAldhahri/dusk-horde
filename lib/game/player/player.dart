@@ -56,6 +56,15 @@ class Player extends SpriteComponent with HasGameReference<DuskHordeGame> {
   Gun get gun => guns[_gunIndex];
   final Vector2 _dodgeDir = Vector2(1, 0);
 
+  /// Seconds standing still (the rifle's Marksman signature).
+  double stillTime = 0;
+  static const marksmanDelay = 1.0;
+
+  bool get marksmanReady =>
+      gun.hasSignature &&
+      gun.def.signature == Signature.marksman &&
+      stillTime >= marksmanDelay;
+
   @override
   Future<void> onLoad() async {
     sprite = Sprite(game.images.fromCache(GameAssets.player));
@@ -125,6 +134,7 @@ class Player extends SpriteComponent with HasGameReference<DuskHordeGame> {
     hp = maxHealth;
     _hurtTimer = 0;
     _knock.setZero();
+    stillTime = 0;
     position.setFrom(game.level.playerStart);
     opacity = 1;
   }
@@ -160,6 +170,11 @@ class Player extends SpriteComponent with HasGameReference<DuskHordeGame> {
     }
 
     final move = game.moveStick.vector;
+    if (move.length2 < 0.01 && !dodge.isRolling) {
+      stillTime += dt;
+    } else {
+      stillTime = 0;
+    }
     if (dodge.isRolling) {
       position.addScaled(_dodgeDir, dodgeSpeed * dt);
     } else {
@@ -188,23 +203,42 @@ class Player extends SpriteComponent with HasGameReference<DuskHordeGame> {
     final s = g.stats;
     final dir = Vector2(cos(aimAngle), sin(aimAngle));
     final muzzle = position + dir * 15;
-    final spread = (game.random.nextDouble() - 0.5) * s.spread;
-    var damage = s.damage;
-    if (game.random.nextDouble() < s.critChance) damage *= 2;
     final sig = g.hasSignature ? g.def.signature : null;
+    var damage = s.damage;
+    var pierce = s.pierce;
     // Last Word: the magazine's final round hits three times as hard.
     if (sig == Signature.lastWord && g.mag.rounds == 0) damage *= 3;
-    game.bullets.fire(
-      muzzle,
-      aimAngle + spread,
-      ShotPayload(
-        damage: damage,
-        pierce: s.pierce,
-        bleed: sig == Signature.shredder,
-      ),
-    );
+    // Marksman: a shot after standing still pierces and hits twice as hard.
+    if (marksmanReady) {
+      damage *= 2;
+      pierce += 3;
+      stillTime = 0;
+    }
+    for (var i = 0; i < s.pellets; i++) {
+      // Pellets fan evenly across the spread; single shots wobble randomly.
+      final offset = s.pellets > 1
+          ? s.spread * (i / (s.pellets - 1) - 0.5) +
+                (game.random.nextDouble() - 0.5) * 0.06
+          : (game.random.nextDouble() - 0.5) * s.spread;
+      final crit = game.random.nextDouble() < s.critChance;
+      game.bullets.fire(
+        muzzle,
+        aimAngle + offset,
+        ShotPayload(
+          damage: crit ? damage * 2 : damage,
+          pierce: pierce,
+          bleed: sig == Signature.shredder,
+          burn: sig == Signature.dragonsBreath,
+          range: s.range,
+        ),
+      );
+    }
     game.world.add(MuzzleFlash(muzzle));
-    game.shake(g.def.id == 'smg' ? 0.5 : 0.8);
+    game.shake(switch (g.def.id) {
+      'smg' => 0.5,
+      'shotgun' => 2.2,
+      _ => 0.8,
+    });
   }
 
   /// Nudges the aim toward the nearest living target within 15 degrees.
@@ -212,7 +246,7 @@ class Player extends SpriteComponent with HasGameReference<DuskHordeGame> {
     double? best;
     var bestDiff = aimAssistAngle;
     for (final t in game.waves.alive) {
-      if (!t.isAlive) continue;
+      if (!t.isAlive || !t.isTargetable) continue;
       final to = t.position - position;
       if (to.length > 260) continue;
       final a = atan2(to.y, to.x);
