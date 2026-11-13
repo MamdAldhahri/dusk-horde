@@ -49,10 +49,16 @@ void main() {
       e.takeHit(999, Vector2(-1, 0));
       expect(game.runScrap, Zombies.shambler.scrap);
       game.onWaveCleared(2);
-      expect(game.runScrap, Zombies.shambler.scrap + 20);
+      expect(
+        game.runScrap,
+        Zombies.shambler.scrap + DuskHordeGame.waveBonus * 2,
+      );
       game.player.takeBite(999, Vector2(1, 0));
       expect(game.isGameOver, isTrue);
-      expect(store.saved?.scrap, Zombies.shambler.scrap + 20);
+      expect(
+        store.saved?.scrap,
+        Zombies.shambler.scrap + DuskHordeGame.waveBonus * 2,
+      );
     },
   );
 

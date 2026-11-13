@@ -18,6 +18,7 @@ class Hud extends PositionComponent with HasGameReference<DuskHordeGame> {
   late final RoundButton _reload;
   late final RoundButton _swap;
   late final RoundButton _skip;
+  late final RoundButton _pause;
   late final TextComponent _scrap;
 
   static final _style = TextPaint(
@@ -30,7 +31,8 @@ class Hud extends PositionComponent with HasGameReference<DuskHordeGame> {
 
   @override
   Future<void> onLoad() async {
-    _ammo = TextComponent(textRenderer: _style);
+    // Right-aligned so long gun names grow away from the pause button.
+    _ammo = TextComponent(textRenderer: _style, anchor: Anchor.topRight);
     _wave = TextComponent(textRenderer: _style, anchor: Anchor.topCenter);
     _dodge = RoundButton(
       label: 'ROLL',
@@ -46,6 +48,11 @@ class Hud extends PositionComponent with HasGameReference<DuskHordeGame> {
       },
     );
     _swap = RoundButton(label: 'SWAP', onPressed: () => game.player.swapGun());
+    _pause = RoundButton(
+      label: 'II',
+      diameter: 48,
+      onPressed: () => game.pauseRun(),
+    );
     _skip = RoundButton(label: 'SKIP', onPressed: () => game.waves.skipWave());
     _scrap = TextComponent(
       textRenderer: TextPaint(
@@ -66,6 +73,7 @@ class Hud extends PositionComponent with HasGameReference<DuskHordeGame> {
       _reload,
       _swap,
       _skip,
+      _pause,
       _scrap,
     ]);
   }
@@ -80,7 +88,8 @@ class Hud extends PositionComponent with HasGameReference<DuskHordeGame> {
       _reload.position = Vector2(size.x - pad - size.y * 0.25, size.y * 0.16);
       _swap.position = Vector2(size.x - pad - size.y * 0.27, size.y * 0.36);
       _skip.position = Vector2(size.x - pad - size.y * 0.43, size.y * 0.20);
-      _ammo.position = Vector2(size.x - pad - 150, 12);
+      _pause.position = Vector2(size.x - pad - 24, 34);
+      _ammo.position = Vector2(size.x - pad - 60, 12);
       _scrap.position = Vector2(16, 32);
       _wave.position = Vector2(size.x / 2, 12);
     }

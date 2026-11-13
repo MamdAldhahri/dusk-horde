@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:flame/components.dart';
 
+import '../audio/game_audio.dart';
 import '../dusk_horde_game.dart';
 import '../player/player.dart';
 import 'aliens.dart';
@@ -75,6 +76,7 @@ class Warden extends Enemy {
         beamReach = _reach(beamAngle);
         if (_timer <= 0) {
           state = WardenState.sweep;
+          game.audio.play(Sfx.beam);
           _timer = sweepTime;
           game.shake(3);
         }

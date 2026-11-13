@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flame/components.dart';
 
 import '../dusk_horde_game.dart';
+import '../audio/game_audio.dart';
 import '../waves/wave_manager.dart';
 
 /// Opens during each breather: walk into it to patch up (+[heal] HP) and
@@ -44,6 +45,7 @@ class SupplyCrate extends PositionComponent
     if (p.position.distanceTo(position) < useRange) {
       if (p.hp < p.maxHealth) p.heal(heal);
       p.refillAmmo();
+      game.audio.play(Sfx.pickup);
       _usedAfterWave = game.waves.wave;
     }
   }

@@ -154,6 +154,7 @@ class Aliens {
     dropChance: 0.03,
     kind: EnemyKind.skitter,
     pack: 7,
+    scrap: 1,
   );
 
   static const lancer = EnemyType(
@@ -163,7 +164,7 @@ class Aliens {
     speed: 84,
     radius: 10,
     biteDamage: 8,
-    scrap: 5,
+    scrap: 4,
     kind: EnemyKind.lancer,
   );
 
@@ -177,7 +178,7 @@ class Aliens {
     biteDamage: 12,
     scale: 1.4,
     dropChance: 1,
-    scrap: 15,
+    scrap: 12,
     kind: EnemyKind.lancer,
   );
 
@@ -189,7 +190,7 @@ class Aliens {
     radius: 10,
     biteDamage: 14,
     biteCooldown: 0.9,
-    scrap: 6,
+    scrap: 5,
     kind: EnemyKind.stalker,
   );
 
@@ -201,7 +202,7 @@ class Aliens {
     radius: 14,
     biteDamage: 0,
     dropChance: 0.3,
-    scrap: 10,
+    scrap: 8,
     kind: EnemyKind.broodPod,
   );
 
@@ -215,7 +216,7 @@ class Aliens {
     biteCooldown: 1.2,
     dropChance: 1,
     isBoss: true,
-    scrap: 150,
+    scrap: 100,
     kind: EnemyKind.warden,
     name: 'THE WARDEN',
   );

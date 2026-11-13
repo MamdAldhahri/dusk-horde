@@ -1,5 +1,6 @@
 import 'package:flame/components.dart';
 
+import '../audio/game_audio.dart';
 import '../dusk_horde_game.dart';
 import '../enemies/enemy.dart';
 import '../enemies/enemy_type.dart';
@@ -166,7 +167,10 @@ class WaveManager extends Component with HasGameReference<DuskHordeGame> {
         p + jitter,
         hpScale: plan.hpScale(wave, boss: type.isBoss),
       );
-      if (type.isBoss) boss = e;
+      if (type.isBoss) {
+        boss = e;
+        game.audio.play(Sfx.bossRoar);
+      }
       addEnemy(e);
     }
   }

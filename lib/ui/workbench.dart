@@ -100,7 +100,14 @@ class _WorkbenchState extends State<Workbench> {
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        IconButton(
+          key: const Key('workbench-settings'),
+          tooltip: 'Settings',
+          color: Palette.text,
+          onPressed: widget.game.openSettings,
+          icon: const Icon(Icons.settings),
+        ),
+        const SizedBox(width: 8),
         FilledButton(
           key: const Key('deploy'),
           style: FilledButton.styleFrom(

@@ -8,9 +8,13 @@ import 'stick_math.dart';
 /// A floating thumb stick that covers one half of the screen. It appears where
 /// the thumb lands and reports [vector] (length 0..1) while held.
 class VirtualStick extends PositionComponent with DragCallbacks {
-  VirtualStick({required this.leftSide});
+  VirtualStick({required this.leftSide, double Function()? scale})
+    : _scale = scale ?? (() => 1);
 
   final bool leftSide;
+
+  /// The player's stick-size setting.
+  final double Function() _scale;
 
   /// Current input, length 0..1. Zero when untouched.
   Vector2 vector = Vector2.zero();
@@ -21,7 +25,7 @@ class VirtualStick extends PositionComponent with DragCallbacks {
   final Vector2 _centre = Vector2.zero();
   final Vector2 _knob = Vector2.zero();
 
-  double get _radius => (size.y * 0.16).clamp(36, 80);
+  double get _radius => (size.y * 0.16).clamp(36, 80) * _scale();
 
   static final _basePaint = Paint()
     ..color = const Color(0x33FFFFFF)

@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flame/components.dart';
 
 import '../dusk_horde_game.dart';
+import '../audio/game_audio.dart';
 
 /// Restores [heal] HP when the player walks over it. Drops fade out after
 /// [lifetime] seconds (blinking for the last 4); map pickups never expire.
@@ -40,6 +41,7 @@ class Medkit extends PositionComponent with HasGameReference<DuskHordeGame> {
     final d = to.length;
     if (d < pickupRange) {
       p.heal(heal);
+      game.audio.play(Sfx.pickup);
       removeFromParent();
     } else if (d < magnetRange) {
       position.addScaled(to.normalized(), 140 * dt);

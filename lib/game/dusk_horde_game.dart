@@ -5,6 +5,7 @@ import 'package:flame/game.dart';
 
 import '../meta/progress.dart';
 import '../meta/save_store.dart';
+import 'audio/game_audio.dart';
 import 'enemies/enemy.dart';
 import 'enemies/plasma_bolt.dart';
 import 'fx/explosion.dart';
@@ -34,15 +35,19 @@ class DuskHordeGame extends FlameGame {
     Progress? progress,
     SaveStore? store,
     this.showWorkbenchOnStart = false,
+    GameAudio? audio,
   }) : random = random ?? Random(),
        progress = progress ?? Progress(),
-       store = store ?? MemorySaveStore();
+       store = store ?? MemorySaveStore(),
+       audio = audio ?? SilentAudio();
 
   /// Height of the visible world in game pixels, whatever the phone.
   static const viewHeight = 360.0;
   static const gameOverOverlay = 'gameOver';
   static const dawnOverlay = 'dawn';
   static const workbenchOverlay = 'workbench';
+  static const pauseOverlay = 'pause';
+  static const settingsOverlay = 'settings';
 
   /// Wave reached at the Gas Station that unlocks the SMG.
   static const smgUnlockWave = 5;
@@ -56,6 +61,7 @@ class DuskHordeGame extends FlameGame {
   final Progress progress;
   final SaveStore store;
   final bool showWorkbenchOnStart;
+  final GameAudio audio;
 
   /// The level being played and whether this run is Endless.
   late LevelDef levelDef;
@@ -85,6 +91,13 @@ class DuskHordeGame extends FlameGame {
 
   bool isGameOver = false;
   bool isDawn = false;
+
+  /// Paused from the HUD button or by leaving the app mid-run.
+  bool isPausedByPlayer = false;
+
+  /// A run is going on: not on the workbench, not over.
+  bool get inRun =>
+      !isGameOver && !isDawn && !overlays.isActive(workbenchOverlay);
   double _shake = 0;
 
   @override
@@ -93,6 +106,8 @@ class DuskHordeGame extends FlameGame {
   @override
   Future<void> onLoad() async {
     await images.loadAll(GameAssets.all);
+    _applyVolumes();
+    await audio.load();
     bullets = BulletPool(world);
     player = Player();
     waves = WaveManager(plan: startLevel.plan, firstBreather: firstBreather)
@@ -104,11 +119,23 @@ class DuskHordeGame extends FlameGame {
     world.addAll([player, flashlight]);
     add(waves);
 
-    moveStick = VirtualStick(leftSide: true);
-    aimStick = VirtualStick(leftSide: false);
+    double stickScale() => progress.settings.stickScale;
+    moveStick = VirtualStick(leftSide: true, scale: stickScale);
+    aimStick = VirtualStick(leftSide: false, scale: stickScale);
     camera.viewport.addAll([moveStick, aimStick, Hud()]);
-    if (showWorkbenchOnStart) openWorkbench();
+    if (showWorkbenchOnStart) {
+      openWorkbench();
+    } else {
+      _startMusic();
+    }
   }
+
+  void _startMusic() => audio.playMusic(levelDef.music);
+
+  void _applyVolumes() => audio.setVolumes(
+    sfx: progress.settings.sfxVolume,
+    music: progress.settings.musicVolume,
+  );
 
   /// Swaps the map, its collision and its waves for [def].
   Future<void> _loadLevel(LevelDef def) async {
@@ -154,6 +181,7 @@ class DuskHordeGame extends FlameGame {
   /// Enemies take double, so popping a Bloater in a crowd pays off.
   void explode(Vector2 at, double radius, double damage) {
     world.add(Explosion(at, radius));
+    audio.play(Sfx.explosion);
     shake(5);
     if (player.position.distanceTo(at) <= radius + Player.radius) {
       player.takeBite(damage, (player.position - at)..normalize());
@@ -183,6 +211,7 @@ class DuskHordeGame extends FlameGame {
   }
 
   void onWaveStarted(int wave) {
+    audio.play(Sfx.waveStart, volume: 0.7);
     if (levelDef == Levels.gasStation && wave >= smgUnlockWave) {
       _unlockGun('smg', 'SMG');
     }
@@ -195,12 +224,17 @@ class DuskHordeGame extends FlameGame {
     if (progress.unlocked.contains(id)) return;
     progress.unlock(id);
     unlockedThisRun.add(name);
+    audio.play(Sfx.unlock);
     store.save(progress);
   }
 
-  /// Bonus scrap for clearing a wave: 10 x the wave number.
+  /// Bonus scrap for clearing a wave: [waveBonus] x the wave number. Tuned
+  /// so a first clear pays about 700 (Gas Station) and 1,400 (Crash Site),
+  /// together enough to max out one gun.
+  static const waveBonus = 3;
+
   void onWaveCleared(int wave) {
-    runScrap += (10 * wave * progress.scrapScale).round();
+    runScrap += (waveBonus * wave * progress.scrapScale).round();
   }
 
   /// Puts the run's takings into saved progress and writes it to disk.
@@ -230,6 +264,7 @@ class DuskHordeGame extends FlameGame {
 
   void onPlayerDied() {
     isGameOver = true;
+    audio.stopMusic();
     _bankRun();
     shake(8);
     _showOverlay(gameOverOverlay);
@@ -240,6 +275,9 @@ class DuskHordeGame extends FlameGame {
   /// what comes next.
   void onDawn() {
     isDawn = true;
+    audio
+      ..stopMusic()
+      ..play(Sfx.dawn);
     final first = progress.beaten.add(levelDef.id);
     if (levelDef == Levels.gasStation) {
       _unlockGun('shotgun', 'Shotgun');
@@ -258,7 +296,8 @@ class DuskHordeGame extends FlameGame {
 
   /// Pauses on the workbench (main menu).
   void openWorkbench() {
-    overlays.removeAll([gameOverOverlay, dawnOverlay]);
+    audio.stopMusic();
+    overlays.removeAll([gameOverOverlay, dawnOverlay, pauseOverlay]);
     _showOverlay(workbenchOverlay);
     pauseEngine();
   }
@@ -281,7 +320,14 @@ class DuskHordeGame extends FlameGame {
     runScrap = 0;
     runCores = 0;
     unlockedThisRun.clear();
-    overlays.removeAll([gameOverOverlay, dawnOverlay, workbenchOverlay]);
+    isPausedByPlayer = false;
+    overlays.removeAll([
+      gameOverOverlay,
+      dawnOverlay,
+      workbenchOverlay,
+      pauseOverlay,
+      settingsOverlay,
+    ]);
     waves
       ..endless = endless
       ..reset();
@@ -297,6 +343,58 @@ class DuskHordeGame extends FlameGame {
     moveStick.vector.setZero();
     aimStick.vector.setZero();
     resumeEngine();
+    _startMusic();
+  }
+
+  /// Freezes the run and shows the pause menu.
+  void pauseRun() {
+    if (!inRun || isPausedByPlayer) return;
+    isPausedByPlayer = true;
+    moveStick.vector.setZero();
+    aimStick.vector.setZero();
+    audio.pauseMusic();
+    _showOverlay(pauseOverlay);
+    pauseEngine();
+  }
+
+  void resumeRun() {
+    if (!isPausedByPlayer) return;
+    isPausedByPlayer = false;
+    overlays.removeAll([pauseOverlay, settingsOverlay]);
+    audio.resumeMusic();
+    resumeEngine();
+  }
+
+  /// Gives up the run from the pause menu. Scrap earned so far is banked,
+  /// the same as dying.
+  void quitRun() {
+    isPausedByPlayer = false;
+    isGameOver = true;
+    _bankRun();
+    openWorkbench();
+  }
+
+  void openSettings() => _showOverlay(settingsOverlay);
+
+  /// Saves and applies whatever the settings panel changed.
+  void closeSettings() {
+    overlays.remove(settingsOverlay);
+    applySettings();
+    store.save(progress);
+  }
+
+  void applySettings() => _applyVolumes();
+
+  /// Leaving the app mid-run opens the pause menu, so coming back never
+  /// drops you straight into a fight.
+  @override
+  void lifecycleStateChange(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
+      if (isLoaded) pauseRun();
+    }
+    super.lifecycleStateChange(state);
   }
 
   @override

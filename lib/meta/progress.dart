@@ -1,7 +1,10 @@
 import 'dart:convert';
 
 import 'perks.dart';
+import 'settings.dart';
 import 'weapon_catalog.dart';
+
+export 'settings.dart';
 
 /// Everything that carries over between runs: banked scrap, boss cores,
 /// unlocks, upgrade choices and perks. Saved as JSON.
@@ -20,7 +23,9 @@ class Progress {
     this.level = 'gas_station',
     this.endless = false,
     this.testMode = false,
-  }) : unlocked = unlocked ?? {'pistol'},
+    Settings? settings,
+  }) : settings = settings ?? Settings(),
+       unlocked = unlocked ?? {'pistol'},
        tiers = tiers ?? {},
        perks = perks ?? {},
        loadout = loadout ?? ['pistol'],
@@ -51,6 +56,9 @@ class Progress {
   /// The level and mode picked on the workbench.
   String level;
   bool endless;
+
+  /// Stick size, aim assist and volumes.
+  final Settings settings;
 
   /// Test Mode (debug builds only): easy fights, everything open.
   bool testMode;
@@ -168,6 +176,7 @@ class Progress {
     'level': level,
     'endless': endless,
     'testMode': testMode,
+    'settings': settings.toJson(),
   };
 
   static Map<String, int> _intMap(Object? m) => {
@@ -194,6 +203,9 @@ class Progress {
     level: j['level'] as String? ?? 'gas_station',
     endless: j['endless'] as bool? ?? false,
     testMode: j['testMode'] as bool? ?? false,
+    settings: Settings.fromJson(
+      (j['settings'] as Map?)?.cast<String, Object?>(),
+    ),
   )..unlocked.add('pistol');
 
   String encode() => jsonEncode(toJson());

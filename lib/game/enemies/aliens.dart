@@ -4,6 +4,8 @@ import 'dart:ui';
 import 'package:flame/components.dart';
 import 'package:flame/effects.dart';
 
+import '../audio/game_audio.dart';
+
 import 'enemy.dart';
 import 'enemy_type.dart';
 import 'plasma_bolt.dart';
@@ -87,6 +89,7 @@ class Lancer extends Enemy {
   }
 
   void _fire(Vector2 toPlayer) {
+    game.audio.play(Sfx.plasma, volume: 0.6);
     final dir = toPlayer.normalized();
     final from = position + dir * (type.radius + 4);
     final spread = isElite ? [-0.25, 0.0, 0.25] : [0.0];

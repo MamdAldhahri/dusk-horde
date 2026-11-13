@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flame/components.dart';
 import 'package:flame/effects.dart';
 
+import '../audio/game_audio.dart';
 import '../dusk_horde_game.dart';
 import '../fx/muzzle_flash.dart';
 import '../game_assets.dart';
@@ -122,6 +123,7 @@ class Player extends SpriteComponent with HasGameReference<DuskHordeGame> {
     if (game.progress.testMode) damage *= testDamageTaken;
     hp = max(0, hp - damage);
     _hurtTimer = hurtGrace;
+    game.audio.play(Sfx.hurt);
     _knock.setFrom(from..scale(140));
     add(
       ColorEffect(
@@ -152,6 +154,7 @@ class Player extends SpriteComponent with HasGameReference<DuskHordeGame> {
           : Vector2(cos(aimAngle), sin(aimAngle)),
     );
     if (dodge.tryStart()) {
+      game.audio.play(Sfx.dodge);
       add(
         OpacityEffect.to(
           0.45,
@@ -173,6 +176,9 @@ class Player extends SpriteComponent with HasGameReference<DuskHordeGame> {
     for (final g in guns) {
       g.mag.update(dt);
     }
+    final reloading = gun.mag.isReloading;
+    if (reloading && !_wasReloading) game.audio.play(Sfx.reload, volume: 0.8);
+    _wasReloading = reloading;
 
     final move = game.moveStick.vector;
     if (move.length2 < 0.01 && !dodge.isRolling) {
@@ -203,9 +209,26 @@ class Player extends SpriteComponent with HasGameReference<DuskHordeGame> {
     angle = aimAngle;
   }
 
+  bool _wasReloading = false;
+  double _lastDryClick = -1;
+
   void _shoot() {
     final g = gun;
-    if (!g.mag.tryFire()) return;
+    if (!g.mag.tryFire()) {
+      // Out of everything: a dry click, at most every half second.
+      final t = game.audio.now();
+      if (g.mag.isDry && t - _lastDryClick > 0.5) {
+        _lastDryClick = t;
+        game.audio.play(Sfx.empty);
+      }
+      return;
+    }
+    game.audio.play(switch (g.def.id) {
+      'smg' => Sfx.smg,
+      'shotgun' => Sfx.shotgun,
+      'rifle' => Sfx.rifle,
+      _ => Sfx.pistol,
+    }, volume: 0.7);
     final s = g.stats;
     final dir = Vector2(cos(aimAngle), sin(aimAngle));
     final muzzle = position + dir * 15;
@@ -250,8 +273,10 @@ class Player extends SpriteComponent with HasGameReference<DuskHordeGame> {
 
   /// Nudges the aim toward the nearest living target within 15 degrees.
   double _assist(double raw) {
+    final strength = game.progress.settings.aimAssist;
+    if (strength <= 0) return raw;
     double? best;
-    var bestDiff = aimAssistAngle;
+    var bestDiff = aimAssistAngle * strength;
     for (final t in game.waves.alive) {
       if (!t.isAlive || !t.isTargetable) continue;
       final to = t.position - position;
