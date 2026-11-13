@@ -9,6 +9,10 @@ enum Gait {
   zigzag,
 }
 
+/// Which class runs the enemy. Data picks the behaviour, so wave plans stay
+/// plain lists of [EnemyType].
+enum EnemyKind { basic, brute, skitter, lancer, stalker, broodPod, warden }
+
 /// Everything that makes one enemy kind different, as plain data. New
 /// apocalypses add entries here plus their sprites; the Enemy class stays.
 class EnemyType {
@@ -27,6 +31,9 @@ class EnemyType {
     this.explodeDamage = 0,
     this.isBoss = false,
     this.scrap = 2,
+    this.kind = EnemyKind.basic,
+    this.pack = 1,
+    this.name = '',
   });
 
   final String id;
@@ -53,6 +60,14 @@ class EnemyType {
 
   /// Scrap earned for the kill.
   final int scrap;
+
+  final EnemyKind kind;
+
+  /// Spawns this many at once from the same point (Skitter packs).
+  final int pack;
+
+  /// Shown on the boss bar.
+  final String name;
 }
 
 /// Level 1 roster. Speeds follow the plan as a share of the player's 120:
@@ -118,5 +133,90 @@ class Zombies {
     dropChance: 1,
     isBoss: true,
     scrap: 60,
+    kind: EnemyKind.brute,
+    name: 'THE BRUTE',
+  );
+}
+
+/// Level 2 roster, from the plan: Skitter 150%, Lancer 70%, Stalker 110%,
+/// Brood Pod static, the Warden 40% of the player's 120.
+class Aliens {
+  Aliens._();
+
+  static const skitter = EnemyType(
+    id: 'skitter',
+    sprite: GameAssets.alienSkitter,
+    hp: 12,
+    speed: 180,
+    radius: 7,
+    biteDamage: 5,
+    biteCooldown: 0.6,
+    dropChance: 0.03,
+    kind: EnemyKind.skitter,
+    pack: 7,
+  );
+
+  static const lancer = EnemyType(
+    id: 'lancer',
+    sprite: GameAssets.alienLancer,
+    hp: 45,
+    speed: 84,
+    radius: 10,
+    biteDamage: 8,
+    scrap: 5,
+    kind: EnemyKind.lancer,
+  );
+
+  /// Mini-boss on waves 5 and 10: fires three bolts at once.
+  static const eliteLancer = EnemyType(
+    id: 'elite_lancer',
+    sprite: GameAssets.alienLancer,
+    hp: 160,
+    speed: 80,
+    radius: 13,
+    biteDamage: 12,
+    scale: 1.4,
+    dropChance: 1,
+    scrap: 15,
+    kind: EnemyKind.lancer,
+  );
+
+  static const stalker = EnemyType(
+    id: 'stalker',
+    sprite: GameAssets.alienStalker,
+    hp: 50,
+    speed: 132,
+    radius: 10,
+    biteDamage: 14,
+    biteCooldown: 0.9,
+    scrap: 6,
+    kind: EnemyKind.stalker,
+  );
+
+  static const broodPod = EnemyType(
+    id: 'brood_pod',
+    sprite: GameAssets.alienBroodPod,
+    hp: 150,
+    speed: 0,
+    radius: 14,
+    biteDamage: 0,
+    dropChance: 0.3,
+    scrap: 10,
+    kind: EnemyKind.broodPod,
+  );
+
+  static const warden = EnemyType(
+    id: 'warden',
+    sprite: GameAssets.alienWarden,
+    hp: 1200,
+    speed: 48,
+    radius: 24,
+    biteDamage: 25,
+    biteCooldown: 1.2,
+    dropChance: 1,
+    isBoss: true,
+    scrap: 150,
+    kind: EnemyKind.warden,
+    name: 'THE WARDEN',
   );
 }

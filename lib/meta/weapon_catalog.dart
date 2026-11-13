@@ -13,6 +13,8 @@ class WeaponStats {
     this.spread = 0.06,
     this.pierce = 0,
     this.critChance = 0,
+    this.pellets = 1,
+    this.range = 390,
   });
 
   final double damage;
@@ -32,6 +34,12 @@ class WeaponStats {
   /// Chance of a double-damage hit.
   final double critChance;
 
+  /// Bullets per shot, fanned across [spread] (the shotgun).
+  final int pellets;
+
+  /// How far a bullet flies, pixels.
+  final double range;
+
   WeaponStats copyWith({
     double? damage,
     double? shotsPerSecond,
@@ -49,6 +57,8 @@ class WeaponStats {
     spread: spread,
     pierce: pierce ?? this.pierce,
     critChance: critChance ?? this.critChance,
+    pellets: pellets,
+    range: range,
   );
 }
 
@@ -66,6 +76,12 @@ enum Signature {
 
   /// SMG: hits stack a bleed on the target.
   shredder,
+
+  /// Shotgun: pellets set targets on fire.
+  dragonsBreath,
+
+  /// Rifle: stand still for a second and the next shot pierces.
+  marksman,
 }
 
 class WeaponDef {
@@ -168,7 +184,46 @@ class Weapons {
     unlockText: 'Reach wave 5 at the Gas Station',
   );
 
-  static const all = [pistol, smg];
+  static const shotgun = WeaponDef(
+    id: 'shotgun',
+    name: 'Shotgun',
+    base: WeaponStats(
+      damage: 7,
+      pellets: 6,
+      shotsPerSecond: 1.4,
+      magazine: 6,
+      reloadSeconds: 2.0,
+      reserve: 36,
+      spread: 0.42,
+      range: 190,
+    ),
+    signature: Signature.dragonsBreath,
+    signatureName: "Dragon's Breath",
+    signatureText: 'Pellets set targets on fire: 5 damage a second for 3 s.',
+    unlockText: 'Survive the night at the Gas Station',
+  );
+
+  static const rifle = WeaponDef(
+    id: 'rifle',
+    name: 'Assault Rifle',
+    base: WeaponStats(
+      damage: 15,
+      shotsPerSecond: 6.5,
+      magazine: 24,
+      reloadSeconds: 1.8,
+      reserve: 120,
+      spread: 0.04,
+      range: 520,
+    ),
+    signature: Signature.marksman,
+    signatureName: 'Marksman',
+    signatureText:
+        'Stand still for 1 s: the next shot pierces 3 targets and hits twice '
+        'as hard.',
+    unlockText: 'Reach wave 8 at the Crash Site',
+  );
+
+  static const all = [pistol, smg, shotgun, rifle];
 
   static WeaponDef byId(String id) => all.firstWhere((w) => w.id == id);
 }

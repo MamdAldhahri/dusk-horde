@@ -64,9 +64,9 @@ void main() {
       expect(game.player.guns, hasLength(1));
       game.onWaveStarted(5);
       expect(game.progress.unlocked, contains('smg'));
-      expect(game.unlockedThisRun, 'SMG');
+      expect(game.unlockedThisRun, ['SMG']);
       game.restart();
-      expect(game.unlockedThisRun, isNull);
+      expect(game.unlockedThisRun, isEmpty);
       expect(game.player.guns, hasLength(2));
       expect(game.player.gun.def.id, 'pistol');
       game.player.swapGun();

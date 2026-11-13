@@ -1,19 +1,21 @@
 import 'package:flame/components.dart';
 
 import '../dusk_horde_game.dart';
-import '../enemies/brute.dart';
 import '../enemies/enemy.dart';
 import '../enemies/enemy_type.dart';
+import '../enemies/spawn.dart';
 import 'wave_plan.dart';
 
 enum WavePhase { breather, spawning, fighting, dawn }
 
 /// Runs the loop: breather, spawn a wave, wait until it's cleared, repeat.
+/// In Endless there is no dawn: the waves keep coming.
 class WaveManager extends Component with HasGameReference<DuskHordeGame> {
-  WaveManager({this.plan = const WavePlan(), this.firstBreather = 3});
+  WaveManager({this.plan = const ZombiePlan(), this.firstBreather = 3});
 
-  final WavePlan plan;
+  WavePlan plan;
   final double firstBreather;
+  bool endless = false;
 
   WavePhase phase = WavePhase.breather;
   int wave = 0;
@@ -74,12 +76,14 @@ class WaveManager extends Component with HasGameReference<DuskHordeGame> {
       case WavePhase.fighting:
         if (alive.isEmpty) {
           game.onWaveCleared(wave);
-          if (wave >= plan.finalWave) {
+          if (!endless && wave >= plan.finalWave) {
             phase = WavePhase.dawn;
             game.onDawn();
           } else {
             phase = WavePhase.breather;
-            breatherLeft = WavePlan.breatherSeconds;
+            breatherLeft = game.progress.testMode
+                ? 3
+                : WavePlan.breatherSeconds;
             game.onBreather();
           }
         }
@@ -91,15 +95,60 @@ class WaveManager extends Component with HasGameReference<DuskHordeGame> {
   void _startWave() {
     wave++;
     game.onWaveStarted(wave);
+    final spec = plan.wave(wave, game.random, endless: endless);
     _queue
       ..clear()
-      ..addAll(plan.wave(wave, game.random).enemies);
+      ..addAll(spec.enemies);
     _spawnTimer = 0;
     phase = WavePhase.spawning;
+    _growPods(spec.pods);
+  }
+
+  /// Brood Pods appear on hive spots, as far from the player as possible.
+  void _growPods(int count) {
+    if (count == 0) return;
+    final spots =
+        [...(game.level.hives.isEmpty ? game.spawnPoints : game.level.hives)]
+          ..shuffle(game.random)
+          ..sort(
+            (a, b) => b
+                .distanceTo(game.player.position)
+                .compareTo(a.distanceTo(game.player.position)),
+          );
+    for (final p in spots.take(count)) {
+      addEnemy(
+        createEnemy(Aliens.broodPod, p.clone(), hpScale: plan.hpScale(wave)),
+      );
+    }
+  }
+
+  /// Test Mode: ends the current wave on the spot (no scrap for the
+  /// skipped enemies), so later waves and the boss can be reached quickly.
+  void skipWave() {
+    if (phase != WavePhase.spawning && phase != WavePhase.fighting) return;
+    _queue.clear();
+    for (final e in alive) {
+      e.removeFromParent();
+    }
+    alive.clear();
+    boss = null;
+    phase = WavePhase.fighting;
+  }
+
+  /// Puts an enemy into play mid-wave (spawns, pods, the Warden's packs).
+  void addEnemy(Enemy e) {
+    alive.add(e);
+    game.world.add(e);
   }
 
   void _spawnOne() {
     final type = _queue.removeLast();
+    // Packs (Skitters) arrive together from one spawn point.
+    var extra = 0;
+    while (extra < type.pack - 1 && _queue.isNotEmpty && _queue.last == type) {
+      _queue.removeLast();
+      extra++;
+    }
     final points = game.spawnPoints;
     // Rotate through spawn points, skipping any right next to the player.
     var p = points[_spawnIndex++ % points.length];
@@ -107,16 +156,18 @@ class WaveManager extends Component with HasGameReference<DuskHordeGame> {
       if (p.distanceTo(game.player.position) > 140) break;
       p = points[_spawnIndex++ % points.length];
     }
-    final jitter = Vector2(
-      (game.random.nextDouble() - 0.5) * 24,
-      (game.random.nextDouble() - 0.5) * 24,
-    );
-    final at = p + jitter;
-    final e = type == Zombies.brute
-        ? Brute(at, hpScale: plan.hpScale(wave, boss: true))
-        : Enemy(type, at, hpScale: plan.hpScale(wave));
-    if (type.isBoss) boss = e;
-    alive.add(e);
-    game.world.add(e);
+    for (var i = 0; i <= extra; i++) {
+      final jitter = Vector2(
+        (game.random.nextDouble() - 0.5) * (24 + 6 * extra),
+        (game.random.nextDouble() - 0.5) * (24 + 6 * extra),
+      );
+      final e = createEnemy(
+        type,
+        p + jitter,
+        hpScale: plan.hpScale(wave, boss: type.isBoss),
+      );
+      if (type.isBoss) boss = e;
+      addEnemy(e);
+    }
   }
 }

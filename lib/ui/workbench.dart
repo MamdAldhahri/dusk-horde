@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../game/dusk_horde_game.dart';
+import '../game/levels.dart';
 import '../meta/perks.dart';
 import '../meta/progress.dart';
 import '../meta/weapon_catalog.dart';
@@ -39,6 +41,8 @@ class _WorkbenchState extends State<Workbench> {
           child: Column(
             children: [
               _header(),
+              const SizedBox(height: 6),
+              _levelPicker(),
               const SizedBox(height: 8),
               Expanded(
                 child: Row(
@@ -103,7 +107,7 @@ class _WorkbenchState extends State<Workbench> {
             backgroundColor: Palette.blood,
             padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
           ),
-          onPressed: widget.game.restart,
+          onPressed: widget.game.deploy,
           child: const Text(
             'DEPLOY',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
@@ -111,6 +115,98 @@ class _WorkbenchState extends State<Workbench> {
         ),
       ],
     );
+  }
+
+  /// Which apocalypse to deploy into, and story or Endless.
+  Widget _levelPicker() {
+    Widget chip({
+      required Key key,
+      required String label,
+      required String? lockedText,
+      required bool selected,
+      required VoidCallback onTap,
+    }) {
+      final locked = lockedText != null;
+      return Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: OutlinedButton(
+          key: key,
+          style: OutlinedButton.styleFrom(
+            backgroundColor: selected ? Palette.chosen : null,
+            foregroundColor: Palette.text,
+            disabledForegroundColor: Palette.muted,
+            side: BorderSide(
+              color: selected
+                  ? Palette.chosen
+                  : Palette.muted.withValues(alpha: 0.4),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            visualDensity: VisualDensity.compact,
+          ),
+          onPressed: locked ? null : onTap,
+          child: Text(
+            locked ? '$label  ·  $lockedText' : label,
+            style: const TextStyle(fontSize: 12),
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 36,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          // Only in debug builds (Run from Android Studio), never in a
+          // release build.
+          if (kDebugMode)
+            chip(
+              key: const Key('test-mode'),
+              label: p.testMode ? 'TEST MODE: ON' : 'TEST MODE: OFF',
+              lockedText: null,
+              selected: p.testMode,
+              onTap: () => _change(() {
+                p.testMode = !p.testMode;
+                // Turning it off hands back any borrowed guns.
+                p.loadout.removeWhere((g) => !p.hasGun(g));
+                if (p.loadout.isEmpty) p.loadout.add('pistol');
+                return true;
+              }),
+            ),
+          for (final l in Levels.all)
+            chip(
+              key: Key('level-${l.id}'),
+              label:
+                  '${l.number}. ${l.name.toUpperCase()}'
+                  '${_best(l.id)}',
+              lockedText: p.isLevelOpen(l.id) ? null : l.unlockText,
+              selected: p.level == l.id,
+              onTap: () => _change(() {
+                p.level = l.id;
+                return true;
+              }),
+            ),
+          chip(
+            key: const Key('endless'),
+            label: p.endless ? 'ENDLESS: ON' : 'ENDLESS: OFF',
+            lockedText: p.endlessOpen
+                ? null
+                : 'Survive the night at the Crash Site',
+            selected: p.endless && p.endlessOpen,
+            onTap: () => _change(() {
+              p.endless = !p.endless;
+              return true;
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// "  ·  best 7" after a level's name, story or Endless.
+  String _best(String id) {
+    final best = (p.endless && p.endlessOpen ? p.endlessBest : p.bestWaves)[id];
+    return best == null ? '' : '  ·  best $best';
   }
 
   Widget _weaponList() {
@@ -127,7 +223,7 @@ class _WorkbenchState extends State<Workbench> {
   }
 
   Widget _weaponCard(WeaponDef w) {
-    final unlocked = p.unlocked.contains(w.id);
+    final unlocked = p.hasGun(w.id);
     final selected = _weapon == w.id;
     final inLoadout = p.loadout.contains(w.id);
     return GestureDetector(
@@ -187,7 +283,7 @@ class _WorkbenchState extends State<Workbench> {
 
   Widget _tiers() {
     final w = Weapons.byId(_weapon);
-    if (!p.unlocked.contains(w.id)) {
+    if (!p.hasGun(w.id)) {
       return _panel(
         child: Center(
           child: Text(

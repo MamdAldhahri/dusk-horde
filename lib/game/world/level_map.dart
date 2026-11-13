@@ -17,7 +17,7 @@ class Blocker {
 /// Everything the game needs from one Tiled map. Object layers are found by
 /// name, so a map edited in Tiled works as long as it keeps these names:
 /// `collision`, `spawns`, `pickups`, `markers` (with `player_start` and
-/// `supply_crate` points).
+/// `supply_crate` points), and optionally `hives` (Brood Pod spots).
 class LevelMap {
   LevelMap._(this.component);
 
@@ -26,6 +26,9 @@ class LevelMap {
   final List<Blocker> blockers = [];
   final List<Vector2> spawns = [];
   final List<Vector2> pickups = [];
+
+  /// Hive spots where Brood Pods grow (optional `hives` layer).
+  final List<Vector2> hives = [];
   late final Vector2 playerStart;
   Vector2? supplyCrate;
 
@@ -57,6 +60,9 @@ class LevelMap {
     }
     for (final o in group('spawns')?.objects ?? const <TiledObject>[]) {
       level.spawns.add(Vector2(o.x, o.y));
+    }
+    for (final o in group('hives')?.objects ?? const <TiledObject>[]) {
+      level.hives.add(Vector2(o.x, o.y));
     }
     for (final o in group('pickups')?.objects ?? const <TiledObject>[]) {
       level.pickups.add(Vector2(o.x, o.y));
