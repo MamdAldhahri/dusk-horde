@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flame/components.dart';
 
 import '../dusk_horde_game.dart';
+import '../audio/game_audio.dart';
 
 /// Tops up guns that use ammo (not the pistol). Fades after 20 s.
 class AmmoBox extends PositionComponent with HasGameReference<DuskHordeGame> {
@@ -32,6 +33,7 @@ class AmmoBox extends PositionComponent with HasGameReference<DuskHordeGame> {
     final to = p.position - position;
     if (to.length < 12) {
       p.addAmmoShare(share);
+      game.audio.play(Sfx.pickup);
       removeFromParent();
     } else if (to.length < 36) {
       position.addScaled(to.normalized(), 140 * dt);

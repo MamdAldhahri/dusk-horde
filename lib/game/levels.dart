@@ -10,6 +10,7 @@ class LevelDef {
     required this.mapFile,
     required this.plan,
     required this.bossName,
+    required this.music,
     this.unlockText = '',
   });
 
@@ -22,6 +23,9 @@ class LevelDef {
   final String mapFile;
   final WavePlan plan;
   final String bossName;
+
+  /// Looping track under `assets/audio/`.
+  final String music;
 
   /// How to open it, shown on the workbench while locked.
   final String unlockText;
@@ -38,6 +42,7 @@ class Levels {
     mapFile: 'gas_station.tmx',
     plan: ZombiePlan(),
     bossName: 'THE BRUTE',
+    music: 'music_gas_station.ogg',
   );
 
   static const crashSite = LevelDef(
@@ -48,6 +53,7 @@ class Levels {
     mapFile: 'crash_site.tmx',
     plan: AlienPlan(),
     bossName: 'THE WARDEN',
+    music: 'music_crash_site.ogg',
     unlockText: 'Survive the night at the Gas Station',
   );
 

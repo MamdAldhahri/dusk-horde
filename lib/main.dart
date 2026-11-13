@@ -3,10 +3,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'game/audio/game_audio.dart';
 import 'game/dusk_horde_game.dart';
 import 'meta/progress.dart';
 import 'meta/save_store.dart';
 import 'ui/panels.dart';
+import 'ui/pause_menu.dart';
+import 'ui/settings_panel.dart';
 import 'ui/workbench.dart';
 
 Future<void> main() async {
@@ -38,6 +41,7 @@ class _DuskHordeAppState extends State<DuskHordeApp> {
     progress: widget.progress,
     store: widget.store,
     showWorkbenchOnStart: widget.store != null,
+    audio: widget.store != null ? FlameGameAudio() : null,
   );
 
   @override
@@ -54,6 +58,10 @@ class _DuskHordeAppState extends State<DuskHordeApp> {
               DawnPanel(game: game as DuskHordeGame),
           DuskHordeGame.workbenchOverlay: (context, game) =>
               Workbench(game: game as DuskHordeGame),
+          DuskHordeGame.pauseOverlay: (context, game) =>
+              PauseMenu(game: game as DuskHordeGame),
+          DuskHordeGame.settingsOverlay: (context, game) =>
+              SettingsPanel(game: game as DuskHordeGame),
         },
       ),
     );

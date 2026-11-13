@@ -12,7 +12,12 @@ class RoundButton extends PositionComponent with TapCallbacks {
     required this.label,
     required this.onPressed,
     this.cooldownFraction,
+    this.diameter,
   }) : super(anchor: Anchor.center);
+
+  /// Fixed size; null scales with the screen.
+
+  final double? diameter;
 
   final String label;
   final void Function() onPressed;
@@ -45,7 +50,7 @@ class RoundButton extends PositionComponent with TapCallbacks {
   @override
   void onGameResize(Vector2 size) {
     super.onGameResize(size);
-    final d = (size.y * 0.15).clamp(48.0, 84.0);
+    final d = diameter ?? (size.y * 0.15).clamp(48.0, 84.0);
     this.size = Vector2.all(d);
     _text.position = this.size / 2;
   }

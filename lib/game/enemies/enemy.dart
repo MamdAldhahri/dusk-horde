@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flame/components.dart';
 import 'package:flame/effects.dart';
 
+import '../audio/game_audio.dart';
 import '../dusk_horde_game.dart';
 import '../player/player.dart';
 import '../world/obstacles.dart';
@@ -68,6 +69,7 @@ class Enemy extends SpriteComponent with HasGameReference<DuskHordeGame> {
   void takeHit(double damage, Vector2 direction) {
     if (!isAlive) return;
     hp -= damage * damageTakenScale;
+    game.audio.play(Sfx.hit, volume: 0.5);
     final push = type.isBoss ? 20.0 : 90.0;
     knock.setFrom(direction.normalized()..scale(push));
     add(
@@ -81,7 +83,12 @@ class Enemy extends SpriteComponent with HasGameReference<DuskHordeGame> {
     if (!isAlive) _die();
   }
 
+  /// Aliens screech, the dead groan.
+  bool get isAlien =>
+      type.kind != EnemyKind.basic && type.kind != EnemyKind.brute;
+
   void _die() {
+    game.audio.play(isAlien ? Sfx.alienDie : Sfx.zombieDie, volume: 0.7);
     game.shake(type.isBoss ? 10 : 2.5);
     game.waves.onEnemyKilled(this);
     if (type.explodeRadius > 0) {
